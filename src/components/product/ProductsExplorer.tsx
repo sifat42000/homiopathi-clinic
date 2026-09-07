@@ -1,0 +1,229 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+
+import ProductCard from "@/components/product/ProductCard";
+import { allProducts } from "@/data/products";
+
+export default function ProductsExplorer() {
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("সব");
+  const [sort, setSort] = useState("default");
+
+  const categories = [
+    "সব",
+    ...Array.from(
+      new Set(allProducts.map((product) => product.category))
+    ),
+  ];
+
+  const filteredProducts = useMemo(() => {
+    let products = [...allProducts];
+
+    // Search
+    if (search.trim()) {
+      const query = search.toLowerCase().trim();
+
+      products = products.filter((product) => {
+        return (
+          product.name.toLowerCase().includes(query) ||
+          product.englishName.toLowerCase().includes(query) ||
+          product.category.toLowerCase().includes(query)
+        );
+      });
+    }
+
+    // Category
+    if (category !== "সব") {
+      products = products.filter(
+        (product) => product.category === category
+      );
+    }
+
+    // Sorting
+    if (sort === "price-low") {
+      products.sort((a, b) => {
+        const priceA = a.salePrice ?? a.regularPrice;
+        const priceB = b.salePrice ?? b.regularPrice;
+
+        return priceA - priceB;
+      });
+    }
+
+    if (sort === "price-high") {
+      products.sort((a, b) => {
+        const priceA = a.salePrice ?? a.regularPrice;
+        const priceB = b.salePrice ?? b.regularPrice;
+
+        return priceB - priceA;
+      });
+    }
+
+    if (sort === "name") {
+      products.sort((a, b) =>
+        a.name.localeCompare(b.name, "bn")
+      );
+    }
+
+    return products;
+  }, [search, category, sort]);
+
+  const clearFilters = () => {
+    setSearch("");
+    setCategory("সব");
+    setSort("default");
+  };
+
+  return (
+    <div>
+      {/* Search + Sort */}
+      <div className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+          
+          {/* Search */}
+          <div className="relative">
+            <Search
+              size={19}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+
+            <input
+              type="text"
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="প্রোডাক্ট খুঁজুন..."
+              className="w-full rounded-xl border border-gray-200 bg-[#FAFAF7] py-3 pl-11 pr-10 outline-none transition placeholder:text-gray-400 focus:border-[#14532D]"
+            />
+
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-700"
+                aria-label="Search clear করুন"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+
+          {/* Sort */}
+          <div className="relative min-w-[210px]">
+            <SlidersHorizontal
+              size={17}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+
+            <select
+              value={sort}
+              onChange={(event) =>
+                setSort(event.target.value)
+              }
+              className="w-full appearance-none rounded-xl border border-gray-200 bg-[#FAFAF7] py-3 pl-11 pr-4 outline-none transition focus:border-[#14532D]"
+            >
+              <option value="default">
+                Default Sorting
+              </option>
+
+              <option value="price-low">
+                দাম: কম থেকে বেশি
+              </option>
+
+              <option value="price-high">
+                দাম: বেশি থেকে কম
+              </option>
+
+              <option value="name">
+                নাম অনুযায়ী
+              </option>
+            </select>
+          </div>
+        </div>
+
+        {/* Categories */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {categories.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setCategory(item)}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                category === item
+                  ? "bg-[#14532D] text-white"
+                  : "bg-green-50 text-[#166534] hover:bg-green-100"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Result Header */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+        <p className="text-sm text-gray-500">
+          মোট{" "}
+          <span className="font-bold text-[#14532D]">
+            {filteredProducts.length}
+          </span>{" "}
+          টি প্রোডাক্ট পাওয়া গেছে
+        </p>
+
+        {(search ||
+          category !== "সব" ||
+          sort !== "default") && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="flex items-center gap-1.5 text-sm font-semibold text-[#14532D]"
+          >
+            <X size={16} />
+            Filter Reset
+          </button>
+        )}
+      </div>
+
+      {/* Products Grid */}
+      {filteredProducts.length > 0 ? (
+        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-8 rounded-[24px] border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
+          <Search
+            size={38}
+            className="mx-auto text-gray-300"
+          />
+
+          <h3 className="mt-4 text-xl font-bold text-gray-800">
+            কোনো প্রোডাক্ট পাওয়া যায়নি
+          </h3>
+
+          <p className="mt-2 text-sm text-gray-500">
+            অন্য নাম অথবা Category দিয়ে চেষ্টা করুন।
+          </p>
+
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="mt-5 rounded-xl bg-[#14532D] px-5 py-3 text-sm font-semibold text-white"
+          >
+            সব Product দেখুন
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
