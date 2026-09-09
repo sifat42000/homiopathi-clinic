@@ -61,7 +61,7 @@ export default function AccountSidebar() {
   };
 
   return (
-    <aside className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm">
+    <aside className="rounded-3xl border border-gray-100 bg-white p-3 shadow-sm lg:sticky lg:top-24 lg:p-4">
       {/* User */}
       <div className="rounded-2xl bg-[#F1F8F3] p-5">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#14532D] shadow-sm">
@@ -78,7 +78,7 @@ export default function AccountSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="mt-4 space-y-1">
+      <nav className="mt-4 grid grid-cols-2 gap-1 lg:block lg:space-y-1">
         {accountLinks.map((item) => {
           const Icon = item.icon;
 
@@ -106,7 +106,7 @@ export default function AccountSidebar() {
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-50"
+          className="col-span-2 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-50 lg:col-span-1"
         >
           <LogOut size={18} />
           Logout

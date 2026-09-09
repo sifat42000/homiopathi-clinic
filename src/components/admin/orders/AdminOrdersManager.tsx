@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -9,50 +10,60 @@ import {
 import {
   CheckCircle2,
   Clock3,
+  Loader2,
   PackageCheck,
   Search,
   ShoppingCart,
   Truck,
-  XCircle,
 } from "lucide-react";
 
-import {
-  useAdminOperationsStore,
-  type AdminOrderStatus,
-} from "@/stores/admin-operations-store";
+import type {
+  DatabaseOrder,
+  OrderStatus,
+} from "@/types/order";
 
-const statuses: {
-  value: AdminOrderStatus;
-  label: string;
-}[] = [
-  {
-    value: "pending",
-    label: "Pending",
-  },
-  {
-    value: "confirmed",
-    label: "Confirmed",
-  },
-  {
-    value: "processing",
-    label: "Processing",
-  },
-  {
-    value: "shipped",
-    label: "Shipped",
-  },
-  {
-    value: "delivered",
-    label: "Delivered",
-  },
-  {
-    value: "cancelled",
-    label: "Cancelled",
-  },
-];
+const statusLabels: Record<
+  OrderStatus,
+  string
+> = {
+  pending: "Pending",
+  confirmed: "Confirmed",
+  processing: "Processing",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
+const nextStatuses: Record<
+  OrderStatus,
+  OrderStatus[]
+> = {
+  pending: [
+    "confirmed",
+    "cancelled",
+  ],
+
+  confirmed: [
+    "processing",
+    "cancelled",
+  ],
+
+  processing: [
+    "shipped",
+    "cancelled",
+  ],
+
+  shipped: [
+    "delivered",
+  ],
+
+  delivered: [],
+
+  cancelled: [],
+};
 
 function statusClass(
-  status: AdminOrderStatus
+  status: OrderStatus
 ) {
   switch (status) {
     case "pending":
@@ -76,33 +87,80 @@ function statusClass(
 }
 
 export default function AdminOrdersManager() {
-  const orders =
-    useAdminOperationsStore(
-      (state) => state.orders
-    );
+  const [
+    orders,
+    setOrders,
+  ] = useState<
+    DatabaseOrder[]
+  >([]);
 
-  const updateOrderStatus =
-    useAdminOperationsStore(
-      (state) =>
-        state.updateOrderStatus
-    );
+  const [loading, setLoading] =
+    useState(true);
 
-  const [mounted, setMounted] =
-    useState(false);
+  const [
+    updatingId,
+    setUpdatingId,
+  ] = useState<
+    string | null
+  >(null);
 
   const [search, setSearch] =
     useState("");
 
-  const [statusFilter, setStatusFilter] =
-    useState("all");
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState("all");
+
+  const [error, setError] =
+    useState("");
+
+  const loadOrders =
+    useCallback(async () => {
+      try {
+        setLoading(true);
+
+        const response =
+          await fetch(
+            "/api/orders?admin=1",
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
+
+        setOrders(
+          data.orders
+        );
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Orders load করা যায়নি।"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }, []);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    loadOrders();
+  }, [loadOrders]);
 
   const filteredOrders =
     useMemo(() => {
-      let result = [...orders];
+      let result = [
+        ...orders,
+      ];
 
       const query =
         search
@@ -110,28 +168,35 @@ export default function AdminOrdersManager() {
           .toLowerCase();
 
       if (query) {
-        result = result.filter(
-          (order) =>
-            order.orderNumber
-              .toLowerCase()
-              .includes(query) ||
-            order.customerName
-              .toLowerCase()
-              .includes(query) ||
-            order.phone.includes(
-              query
-            )
-        );
+        result =
+          result.filter(
+            (order) =>
+              order.orderNumber
+                .toLowerCase()
+                .includes(
+                  query
+                ) ||
+              order.customer.name
+                .toLowerCase()
+                .includes(
+                  query
+                ) ||
+              order.customer.phone.includes(
+                query
+              )
+          );
       }
 
       if (
-        statusFilter !== "all"
+        statusFilter !==
+        "all"
       ) {
-        result = result.filter(
-          (order) =>
-            order.status ===
-            statusFilter
-        );
+        result =
+          result.filter(
+            (order) =>
+              order.status ===
+              statusFilter
+          );
       }
 
       return result;
@@ -141,46 +206,102 @@ export default function AdminOrdersManager() {
       statusFilter,
     ]);
 
-  if (!mounted) {
-    return (
-      <div className="py-20 text-center text-sm text-gray-400">
-        Orders Loading...
-      </div>
-    );
-  }
+  const updateStatus =
+    async (
+      order: DatabaseOrder,
+      status: OrderStatus
+    ) => {
+      const confirmChange =
+        window.confirm(
+          `${order.orderNumber} → ${statusLabels[status]} করতে চান?`
+        );
 
-  const pendingCount =
+      if (!confirmChange) {
+        return;
+      }
+
+      try {
+        setError("");
+
+        setUpdatingId(
+          order.id
+        );
+
+        const response =
+          await fetch(
+            `/api/orders/${order.id}`,
+            {
+              method:
+                "PATCH",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  status,
+                }),
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
+
+        await loadOrders();
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Status Update করা যায়নি।"
+        );
+      } finally {
+        setUpdatingId(
+          null
+        );
+      }
+    };
+
+  const pending =
     orders.filter(
       (order) =>
-        order.status === "pending"
+        order.status ===
+        "pending"
     ).length;
 
-  const deliveredCount =
+  const delivered =
     orders.filter(
       (order) =>
         order.status ===
         "delivered"
     ).length;
 
-  const totalSales =
+  const deliveredSales =
     orders
       .filter(
         (order) =>
-          order.status !==
-          "cancelled"
+          order.status ===
+          "delivered"
       )
       .reduce(
         (total, order) =>
-          total + order.total,
+          total +
+          order.total,
         0
       );
 
   return (
     <div>
-      {/* Heading */}
       <div>
         <p className="text-sm font-semibold text-[#15803D]">
-          Sales
+          Real Orders
         </p>
 
         <h1 className="mt-1 text-3xl font-bold text-gray-900">
@@ -188,11 +309,10 @@ export default function AdminOrdersManager() {
         </h1>
 
         <p className="mt-2 text-sm text-gray-500">
-          Customer Order এবং Order Status Manage করুন।
+          সব Order এখন MongoDB Database থেকে আসছে।
         </p>
       </div>
 
-      {/* Stats */}
       <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-[22px] border border-gray-100 bg-white p-5 shadow-sm">
           <ShoppingCart
@@ -200,11 +320,11 @@ export default function AdminOrdersManager() {
             className="text-[#14532D]"
           />
 
-          <p className="font-english mt-4 text-3xl font-bold text-gray-900">
+          <p className="font-english mt-4 text-3xl font-bold">
             {orders.length}
           </p>
 
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             Total Orders
           </p>
         </div>
@@ -215,11 +335,11 @@ export default function AdminOrdersManager() {
             className="text-amber-600"
           />
 
-          <p className="font-english mt-4 text-3xl font-bold text-gray-900">
-            {pendingCount}
+          <p className="font-english mt-4 text-3xl font-bold">
+            {pending}
           </p>
 
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             Pending
           </p>
         </div>
@@ -230,33 +350,40 @@ export default function AdminOrdersManager() {
             className="text-green-600"
           />
 
-          <p className="font-english mt-4 text-3xl font-bold text-gray-900">
-            {deliveredCount}
+          <p className="font-english mt-4 text-3xl font-bold">
+            {delivered}
           </p>
 
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             Delivered
           </p>
         </div>
 
-        <div className="rounded-[22px] bg-[#14532D] p-5 text-white shadow-sm">
+        <div className="rounded-[22px] bg-[#14532D] p-5 text-white">
           <PackageCheck
             size={21}
           />
 
           <p className="mt-4 text-3xl font-bold">
-            ৳{totalSales}
+            ৳
+            {
+              deliveredSales
+            }
           </p>
 
-          <p className="mt-1 text-sm text-green-100/70">
-            Demo Sales Value
+          <p className="text-sm text-green-100/70">
+            Delivered Sales
           </p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="mt-7 grid gap-3 rounded-[22px] border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-[1fr_220px]">
-        
+      {error && (
+        <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      <div className="mt-7 grid gap-3 rounded-[22px] border border-gray-100 bg-white p-4 md:grid-cols-[1fr_220px]">
         <div className="relative">
           <Search
             size={18}
@@ -264,201 +391,239 @@ export default function AdminOrdersManager() {
           />
 
           <input
-            type="text"
             value={search}
             onChange={(event) =>
               setSearch(
                 event.target.value
               )
             }
-            placeholder="Order Number, Customer অথবা Phone..."
-            className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4 outline-none focus:border-[#14532D]"
+            placeholder="Order, Customer বা Phone Search..."
+            className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4"
           />
         </div>
 
         <select
-          value={statusFilter}
+          value={
+            statusFilter
+          }
           onChange={(event) =>
             setStatusFilter(
               event.target.value
             )
           }
-          className="rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-[#14532D]"
+          className="rounded-xl border border-gray-200 bg-white px-4 py-3"
         >
           <option value="all">
             All Status
           </option>
 
-          {statuses.map(
-            (status) => (
+          {Object.entries(
+            statusLabels
+          ).map(
+            ([
+              value,
+              label,
+            ]) => (
               <option
-                key={status.value}
-                value={status.value}
+                key={value}
+                value={value}
               >
-                {status.label}
+                {label}
               </option>
             )
           )}
         </select>
       </div>
 
-      {/* Table */}
-      <div className="mt-6 overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1050px]">
-            <thead className="bg-[#F7FBF8]">
-              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="px-5 py-4">
-                  Order
-                </th>
-
-                <th className="px-5 py-4">
-                  Customer
-                </th>
-
-                <th className="px-5 py-4">
-                  Items
-                </th>
-
-                <th className="px-5 py-4">
-                  Total
-                </th>
-
-                <th className="px-5 py-4">
-                  Payment
-                </th>
-
-                <th className="px-5 py-4">
-                  Status
-                </th>
-
-                <th className="px-5 py-4">
-                  Change Status
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-gray-100">
-              {filteredOrders.map(
-                (order) => (
-                  <tr key={order.id}>
-                    <td className="px-5 py-4">
+      {loading ? (
+        <div className="py-20">
+          <Loader2
+            size={30}
+            className="mx-auto animate-spin text-[#14532D]"
+          />
+        </div>
+      ) : (
+        <div className="mt-6 space-y-4">
+          {filteredOrders.map(
+            (order) => (
+              <article
+                key={order.id}
+                className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm"
+              >
+                <div className="flex flex-col justify-between gap-5 lg:flex-row">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
                       <p className="font-english font-bold text-[#14532D]">
                         {
                           order.orderNumber
                         }
                       </p>
 
-                      <p className="font-english mt-1 text-xs text-gray-400">
-                        {new Date(
-                          order.createdAt
-                        ).toLocaleDateString()}
-                      </p>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-gray-900">
-                        {
-                          order.customerName
-                        }
-                      </p>
-
-                      <p className="font-english mt-1 text-xs text-gray-400">
-                        {order.phone}
-                      </p>
-                    </td>
-
-                    <td className="px-5 py-4 font-english text-sm">
-                      {
-                        order.itemCount
-                      }
-                    </td>
-
-                    <td className="px-5 py-4 font-bold text-gray-900">
-                      ৳{order.total}
-                    </td>
-
-                    <td className="px-5 py-4 text-sm text-gray-500">
-                      {
-                        order.paymentMethod
-                      }
-                    </td>
-
-                    <td className="px-5 py-4">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(
                           order.status
                         )}`}
                       >
                         {
-                          order.status
+                          statusLabels[
+                            order.status
+                          ]
                         }
                       </span>
-                    </td>
 
-                    <td className="px-5 py-4">
-                      <select
-                        value={
-                          order.status
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          updateOrderStatus(
-                            order.id,
-                            event
-                              .target
-                              .value as AdminOrderStatus
-                          )
-                        }
-                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#14532D]"
-                      >
-                        {statuses.map(
-                          (
+                      <span className="rounded-full bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-500">
+                        COD
+                      </span>
+                    </div>
+
+                    <h2 className="mt-4 font-bold text-gray-900">
+                      {
+                        order.customer
+                          .name
+                      }
+                    </h2>
+
+                    <p className="font-english mt-1 text-sm text-gray-500">
+                      {
+                        order.customer
+                          .phone
+                      }
+                    </p>
+
+                    <p className="mt-3 text-sm text-gray-500">
+                      {
+                        order.shippingAddress
+                          .address
+                      }
+                      ,{" "}
+                      {
+                        order.shippingAddress
+                          .area
+                      }
+                      ,{" "}
+                      {
+                        order.shippingAddress
+                          .district
+                      }
+                    </p>
+                  </div>
+
+                  <div className="lg:text-right">
+                    <p className="text-2xl font-bold text-gray-900">
+                      ৳
+                      {
+                        order.total
+                      }
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-400">
+                      {
+                        order.paymentStatus ===
+                        "paid"
+                          ? "COD Paid"
+                          : "COD Unpaid"
+                      }
+                    </p>
+
+                    <p className="font-english mt-2 text-xs text-gray-400">
+                      {new Date(
+                        order.createdAt
+                      ).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl bg-[#F7FBF8] p-4">
+                  <p className="mb-3 text-xs font-bold uppercase text-gray-400">
+                    Products
+                  </p>
+
+                  <div className="space-y-2">
+                    {order.items.map(
+                      (item) => (
+                        <div
+                          key={
+                            item.productId
+                          }
+                          className="flex justify-between gap-4 text-sm"
+                        >
+                          <span>
+                            {
+                              item.productName
+                            }{" "}
+                            ×{" "}
+                            {
+                              item.quantity
+                            }
+                          </span>
+
+                          <span className="font-semibold">
+                            ৳
+                            {
+                              item.lineTotal
+                            }
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {nextStatuses[
+                  order.status
+                ].length >
+                  0 && (
+                  <div className="mt-5 flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+                    {nextStatuses[
+                      order.status
+                    ].map(
+                      (status) => (
+                        <button
+                          key={
                             status
-                          ) => (
-                            <option
-                              key={
-                                status.value
-                              }
-                              value={
-                                status.value
-                              }
-                            >
-                              {
-                                status.label
-                              }
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </td>
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
+                          }
+                          type="button"
+                          disabled={
+                            updatingId ===
+                            order.id
+                          }
+                          onClick={() =>
+                            updateStatus(
+                              order,
+                              status
+                            )
+                          }
+                          className={`rounded-xl px-4 py-2.5 text-xs font-semibold disabled:opacity-50 ${
+                            status ===
+                            "cancelled"
+                              ? "bg-red-50 text-red-600"
+                              : "bg-[#14532D] text-white"
+                          }`}
+                        >
+                          {updatingId ===
+                          order.id
+                            ? "Updating..."
+                            : statusLabels[
+                                status
+                              ]}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </article>
+            )
+          )}
         </div>
+      )}
 
-        {filteredOrders.length ===
+      {!loading &&
+        filteredOrders.length ===
           0 && (
-          <div className="py-14 text-center">
-            <XCircle
-              size={32}
-              className="mx-auto text-gray-300"
-            />
-
-            <p className="mt-3 text-sm text-gray-400">
-              কোনো Order পাওয়া যায়নি।
-            </p>
+          <div className="mt-6 rounded-[24px] border border-dashed border-gray-200 bg-white py-16 text-center text-gray-400">
+            কোনো Order পাওয়া যায়নি।
           </div>
         )}
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm leading-7 text-amber-900">
-        এগুলো এখন Demo Admin Order। Backend-এর পরে Checkout থেকে আসল Order
-        MongoDB-তে Save হবে এবং এই Table-এ automatically আসবে।
-      </div>
     </div>
   );
 }

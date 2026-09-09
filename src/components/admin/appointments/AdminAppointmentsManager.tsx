@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -11,39 +12,54 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Loader2,
   Search,
   XCircle,
 } from "lucide-react";
 
-import {
-  useAdminOperationsStore,
-  type AdminAppointmentStatus,
-} from "@/stores/admin-operations-store";
+import type {
+  AppointmentStatus,
+  DatabaseAppointment,
+} from "@/types/appointment";
 
-const statuses: {
-  value: AdminAppointmentStatus;
-  label: string;
-}[] = [
-  {
-    value: "pending",
-    label: "Pending",
-  },
-  {
-    value: "confirmed",
-    label: "Confirmed",
-  },
-  {
-    value: "completed",
-    label: "Completed",
-  },
-  {
-    value: "cancelled",
-    label: "Cancelled",
-  },
-];
+const labels: Record<
+  AppointmentStatus,
+  string
+> = {
+  pending: "Pending",
+
+  confirmed:
+    "Confirmed",
+
+  completed:
+    "Completed",
+
+  cancelled:
+    "Cancelled",
+};
+
+const nextStatuses: Record<
+  AppointmentStatus,
+  AppointmentStatus[]
+> = {
+  pending: [
+    "confirmed",
+    "cancelled",
+  ],
+
+  confirmed: [
+    "completed",
+    "cancelled",
+  ],
+
+  completed: [],
+
+  cancelled: [],
+};
 
 function statusClass(
-  status: AdminAppointmentStatus
+  status:
+    AppointmentStatus
 ) {
   switch (status) {
     case "pending":
@@ -61,32 +77,78 @@ function statusClass(
 }
 
 export default function AdminAppointmentsManager() {
-  const appointments =
-    useAdminOperationsStore(
-      (state) =>
-        state.appointments
-    );
+  const [
+    appointments,
+    setAppointments,
+  ] = useState<
+    DatabaseAppointment[]
+  >([]);
 
-  const updateAppointmentStatus =
-    useAdminOperationsStore(
-      (state) =>
-        state.updateAppointmentStatus
-    );
+  const [loading, setLoading] =
+    useState(true);
 
-  const [mounted, setMounted] =
-    useState(false);
+  const [
+    updatingId,
+    setUpdatingId,
+  ] = useState<
+    string | null
+  >(null);
 
   const [search, setSearch] =
     useState("");
 
-  const [statusFilter, setStatusFilter] =
-    useState("all");
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState("all");
+
+  const [error, setError] =
+    useState("");
+
+  const loadAppointments =
+    useCallback(async () => {
+      try {
+        setLoading(true);
+
+        setError("");
+
+        const response =
+          await fetch(
+            "/api/appointments?admin=1",
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
+
+        setAppointments(
+          data.appointments
+        );
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Appointments load করা যায়নি।"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }, []);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    loadAppointments();
+  }, [loadAppointments]);
 
-  const filteredAppointments =
+  const filtered =
     useMemo(() => {
       let result = [
         ...appointments,
@@ -98,32 +160,40 @@ export default function AdminAppointmentsManager() {
           .toLowerCase();
 
       if (query) {
-        result = result.filter(
-          (appointment) =>
-            appointment
-              .appointmentNumber
-              .toLowerCase()
-              .includes(query) ||
-            appointment.patientName
-              .toLowerCase()
-              .includes(query) ||
-            appointment.phone.includes(
-              query
-            ) ||
-            appointment.treatment
-              .toLowerCase()
-              .includes(query)
-        );
+        result =
+          result.filter(
+            (appointment) =>
+              appointment.appointmentNumber
+                .toLowerCase()
+                .includes(
+                  query
+                ) ||
+              appointment.patient.name
+                .toLowerCase()
+                .includes(
+                  query
+                ) ||
+              appointment.patient.phone.includes(
+                query
+              ) ||
+              appointment.treatment.title
+                .toLowerCase()
+                .includes(
+                  query
+                )
+          );
       }
 
       if (
-        statusFilter !== "all"
+        statusFilter !==
+        "all"
       ) {
-        result = result.filter(
-          (appointment) =>
-            appointment.status ===
-            statusFilter
-        );
+        result =
+          result.filter(
+            (appointment) =>
+              appointment.status ===
+              statusFilter
+          );
       }
 
       return result;
@@ -133,13 +203,71 @@ export default function AdminAppointmentsManager() {
       statusFilter,
     ]);
 
-  if (!mounted) {
-    return (
-      <div className="py-20 text-center text-sm text-gray-400">
-        Appointments Loading...
-      </div>
-    );
-  }
+  const updateStatus =
+    async (
+      appointment:
+        DatabaseAppointment,
+
+      status:
+        AppointmentStatus
+    ) => {
+      const confirmed =
+        window.confirm(
+          `${appointment.appointmentNumber} → ${labels[status]} করতে চান?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setUpdatingId(
+          appointment.id
+        );
+
+        setError("");
+
+        const response =
+          await fetch(
+            `/api/appointments/${appointment.id}`,
+            {
+              method:
+                "PATCH",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  status,
+                }),
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
+
+        await loadAppointments();
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Status Update করা যায়নি।"
+        );
+      } finally {
+        setUpdatingId(
+          null
+        );
+      }
+    };
 
   const pending =
     appointments.filter(
@@ -166,7 +294,7 @@ export default function AdminAppointmentsManager() {
     <div>
       <div>
         <p className="text-sm font-semibold text-[#15803D]">
-          Appointment
+          Real Appointment
         </p>
 
         <h1 className="mt-1 text-3xl font-bold text-gray-900">
@@ -174,7 +302,7 @@ export default function AdminAppointmentsManager() {
         </h1>
 
         <p className="mt-2 text-sm text-gray-500">
-          Patient Appointment Request Confirm, Complete অথবা Cancel করুন।
+          সব Appointment এখন MongoDB থেকে Load হচ্ছে।
         </p>
       </div>
 
@@ -192,7 +320,7 @@ export default function AdminAppointmentsManager() {
             }
           </p>
 
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             Total
           </p>
         </div>
@@ -207,7 +335,7 @@ export default function AdminAppointmentsManager() {
             {pending}
           </p>
 
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             Pending
           </p>
         </div>
@@ -222,26 +350,34 @@ export default function AdminAppointmentsManager() {
             {confirmed}
           </p>
 
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="text-sm text-gray-500">
             Confirmed
           </p>
         </div>
 
         <div className="rounded-[22px] bg-[#14532D] p-5 text-white">
-          <CheckCircle2 size={21} />
+          <CheckCircle2
+            size={21}
+          />
 
           <p className="font-english mt-4 text-3xl font-bold">
             {completed}
           </p>
 
-          <p className="mt-1 text-sm text-green-100/70">
+          <p className="text-sm text-green-100/70">
             Completed
           </p>
         </div>
       </div>
 
+      {error && (
+        <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       {/* Filters */}
-      <div className="mt-7 grid gap-3 rounded-[22px] border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-[1fr_220px]">
+      <div className="mt-7 grid gap-3 rounded-[22px] border border-gray-100 bg-white p-4 md:grid-cols-[1fr_220px]">
         <div className="relative">
           <Search
             size={18}
@@ -261,183 +397,238 @@ export default function AdminAppointmentsManager() {
         </div>
 
         <select
-          value={statusFilter}
+          value={
+            statusFilter
+          }
           onChange={(event) =>
             setStatusFilter(
               event.target.value
             )
           }
-          className="rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none"
+          className="rounded-xl border border-gray-200 bg-white px-4 py-3"
         >
           <option value="all">
             All Status
           </option>
 
-          {statuses.map(
-            (status) => (
+          {Object.entries(
+            labels
+          ).map(
+            ([
+              value,
+              label,
+            ]) => (
               <option
-                key={status.value}
-                value={status.value}
+                key={value}
+                value={value}
               >
-                {status.label}
+                {label}
               </option>
             )
           )}
         </select>
       </div>
 
-      {/* Table */}
-      <div className="mt-6 overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1050px]">
-            <thead className="bg-[#F7FBF8]">
-              <tr className="text-left text-xs font-semibold uppercase text-gray-500">
-                <th className="px-5 py-4">
-                  Appointment
-                </th>
-
-                <th className="px-5 py-4">
-                  Patient
-                </th>
-
-                <th className="px-5 py-4">
-                  Treatment
-                </th>
-
-                <th className="px-5 py-4">
-                  Schedule
-                </th>
-
-                <th className="px-5 py-4">
-                  Fee
-                </th>
-
-                <th className="px-5 py-4">
-                  Status
-                </th>
-
-                <th className="px-5 py-4">
-                  Manage
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-gray-100">
-              {filteredAppointments.map(
-                (
-                  appointment
-                ) => (
-                  <tr
-                    key={
-                      appointment.id
-                    }
-                  >
-                    <td className="font-english px-5 py-4 font-bold text-[#14532D]">
-                      {
-                        appointment.appointmentNumber
-                      }
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-gray-900">
+      {loading ? (
+        <div className="py-20">
+          <Loader2
+            size={30}
+            className="mx-auto animate-spin text-[#14532D]"
+          />
+        </div>
+      ) : (
+        <div className="mt-6 space-y-4">
+          {filtered.map(
+            (appointment) => (
+              <article
+                key={
+                  appointment.id
+                }
+                className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm"
+              >
+                <div className="flex flex-col justify-between gap-5 lg:flex-row">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="font-english font-bold text-[#14532D]">
                         {
-                          appointment.patientName
+                          appointment.appointmentNumber
                         }
                       </p>
 
-                      <p className="font-english mt-1 text-xs text-gray-400">
-                        {
-                          appointment.phone
-                        }
-                      </p>
-                    </td>
-
-                    <td className="px-5 py-4 text-sm text-gray-600">
-                      {
-                        appointment.treatment
-                      }
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <p className="font-english text-sm font-semibold">
-                        {
-                          appointment.date
-                        }
-                      </p>
-
-                      <p className="font-english mt-1 text-xs text-gray-400">
-                        {
-                          appointment.time
-                        }
-                      </p>
-                    </td>
-
-                    <td className="px-5 py-4 font-bold">
-                      ৳
-                      {
-                        appointment.fee
-                      }
-                    </td>
-
-                    <td className="px-5 py-4">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(
                           appointment.status
                         )}`}
                       >
                         {
-                          appointment.status
+                          labels[
+                            appointment.status
+                          ]
                         }
                       </span>
-                    </td>
+                    </div>
 
-                    <td className="px-5 py-4">
-                      <select
-                        value={
-                          appointment.status
+                    <h2 className="mt-4 text-lg font-bold text-gray-900">
+                      {
+                        appointment.patient.name
+                      }
+                    </h2>
+
+                    <p className="font-english mt-1 text-sm text-gray-500">
+                      {
+                        appointment.patient.phone
+                      }
+                    </p>
+
+                    <p className="mt-3 font-semibold text-gray-700">
+                      {
+                        appointment.treatment.title
+                      }
+                    </p>
+
+                    <p className="mt-1 text-sm text-gray-500">
+                      {
+                        appointment.treatment.englishTitle
+                      }
+                    </p>
+                  </div>
+
+                  <div className="lg:text-right">
+                    <p className="font-english text-lg font-bold text-gray-900">
+                      {
+                        appointment.date
+                      }
+                    </p>
+
+                    <p className="font-english mt-1 text-lg font-semibold text-[#14532D]">
+                      {
+                        appointment.time
+                      }
+                    </p>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                      Fee: ৳
+                      {
+                        appointment.treatment.fee
+                      }
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-400">
+                      {
+                        appointment.treatment.duration
+                      }{" "}
+                      মিনিট
+                    </p>
+                  </div>
+                </div>
+
+                {(appointment.patient.age ||
+                  appointment.patient.gender ||
+                  appointment.note) && (
+                  <div className="mt-5 rounded-2xl bg-[#F7FBF8] p-4 text-sm text-gray-600">
+                    {appointment.patient.age !==
+                      undefined && (
+                      <p>
+                        Age:{" "}
+                        {
+                          appointment.patient.age
                         }
-                        onChange={(
-                          event
-                        ) =>
-                          updateAppointmentStatus(
-                            appointment.id,
-                            event
-                              .target
-                              .value as AdminAppointmentStatus
-                          )
+                      </p>
+                    )}
+
+                    {appointment.patient.gender && (
+                      <p className="mt-1">
+                        Gender:{" "}
+                        {
+                          appointment.patient.gender
                         }
-                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#14532D]"
+                      </p>
+                    )}
+
+                    {appointment.note && (
+                      <p className="mt-2 leading-7">
+                        Note:{" "}
+                        {
+                          appointment.note
+                        }
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Status History */}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {appointment.statusHistory.map(
+                    (
+                      history,
+                      index
+                    ) => (
+                      <span
+                        key={`${history.status}-${index}`}
+                        className="rounded-full bg-gray-50 px-3 py-1.5 text-xs text-gray-500"
                       >
-                        {statuses.map(
-                          (
-                            status
-                          ) => (
-                            <option
-                              key={
-                                status.value
-                              }
-                              value={
-                                status.value
-                              }
-                            >
-                              {
-                                status.label
-                              }
-                            </option>
-                          )
-                        )}
-                      </select>
-                    </td>
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
-        </div>
+                        {
+                          labels[
+                            history.status
+                          ]
+                        }
+                      </span>
+                    )
+                  )}
+                </div>
 
-        {filteredAppointments
-          .length === 0 && (
-          <div className="py-14 text-center">
+                {nextStatuses[
+                  appointment.status
+                ].length >
+                  0 && (
+                  <div className="mt-5 flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+                    {nextStatuses[
+                      appointment.status
+                    ].map(
+                      (status) => (
+                        <button
+                          key={
+                            status
+                          }
+                          type="button"
+                          disabled={
+                            updatingId ===
+                            appointment.id
+                          }
+                          onClick={() =>
+                            updateStatus(
+                              appointment,
+                              status
+                            )
+                          }
+                          className={`rounded-xl px-4 py-2.5 text-xs font-semibold disabled:opacity-50 ${
+                            status ===
+                            "cancelled"
+                              ? "bg-red-50 text-red-600"
+                              : "bg-[#14532D] text-white"
+                          }`}
+                        >
+                          {updatingId ===
+                          appointment.id
+                            ? "Updating..."
+                            : labels[
+                                status
+                              ]}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </article>
+            )
+          )}
+        </div>
+      )}
+
+      {!loading &&
+        filtered.length ===
+          0 && (
+          <div className="mt-6 rounded-[24px] border border-dashed border-gray-200 bg-white py-16 text-center">
             <XCircle
               size={32}
               className="mx-auto text-gray-300"
@@ -448,7 +639,6 @@ export default function AdminAppointmentsManager() {
             </p>
           </div>
         )}
-      </div>
     </div>
   );
 }

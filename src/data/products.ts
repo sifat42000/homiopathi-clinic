@@ -1,18 +1,43 @@
+import type { ProductImage } from "@/types/product-image";
+
 export type Product = {
   id: number;
+
   name: string;
+
   englishName: string;
+
   slug: string;
+
   shortDescription: string;
+
   description: string;
+
   regularPrice: number;
+
   salePrice?: number;
+
+  discountEnabled?: boolean;
+
+  discountPrice?: number;
+
+  discountStartAt?: string;
+
+  discountEndAt?: string;
+
   stock: number;
+
   badge?: string;
+
   category: string;
+
   size: string;
+
   sku: string;
+
   usageInfo: string;
+
+  images?: ProductImage[];
 };
 
 export const allProducts: Product[] = [

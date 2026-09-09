@@ -1,16 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
 import {
-  ArrowRight,
-  Check,
-  PackageOpen,
+  useEffect,
+  useState,
+} from "react";
+
+import Image from "next/image";
+
+import Link from "next/link";
+
+import {
+  Package,
   ShoppingCart,
 } from "lucide-react";
 
-import type { Product } from "@/data/products";
-import { useCartStore } from "@/stores/cart-store";
+import type {
+  Product,
+} from "@/data/products";
+
+import {
+  useCartStore,
+} from "@/stores/cart-store";
+
+import DiscountCountdown from "@/components/product/DiscountCountdown";
+
+import {
+  getEffectiveProductPrice,
+  isTimedDiscountActive,
+} from "@/lib/product-pricing";
 
 type ProductCardProps = {
   product: Product;
@@ -19,123 +36,234 @@ type ProductCardProps = {
 export default function ProductCard({
   product,
 }: ProductCardProps) {
-  const addItem = useCartStore(
-    (state) => state.addItem
-  );
+  const addItem =
+    useCartStore(
+      (state) =>
+        state.addItem
+    );
 
-  const [added, setAdded] = useState(false);
+  const [
+    now,
+    setNow,
+  ] = useState<
+    number | null
+  >(null);
 
-  const hasDiscount =
-    product.salePrice &&
-    product.salePrice < product.regularPrice;
+  useEffect(() => {
+    setNow(
+      Date.now()
+    );
 
-  const handleAddToCart = () => {
-    addItem(product, 1);
+    const timer =
+      window.setInterval(
+        () => {
+          setNow(
+            Date.now()
+          );
+        },
+        1000
+      );
 
-    setAdded(true);
+    return () => {
+      window.clearInterval(
+        timer
+      );
+    };
+  }, []);
 
-    window.setTimeout(() => {
-      setAdded(false);
-    }, 1200);
-  };
+  const currentPrice =
+    now === null
+      ? product.salePrice ??
+        product.regularPrice
+      : getEffectiveProductPrice(
+          product,
+          new Date(now)
+        );
+
+  const timedDiscountActive =
+    now === null
+      ? false
+      : isTimedDiscountActive(
+          product,
+          new Date(now)
+        );
+
+  const hasLowerPrice =
+    currentPrice <
+    product.regularPrice;
+
+  const handleAddToCart =
+    () => {
+      if (
+        product.stock <= 0
+      ) {
+        return;
+      }
+
+      /*
+        Cart estimate-এর জন্য
+        current effective price পাঠাচ্ছি।
+        Final Order Price server
+        আবার MongoDB থেকে calculate করবে।
+      */
+      const cartProduct: Product =
+        {
+          ...product,
+
+          salePrice:
+            currentPrice <
+            product.regularPrice
+              ? currentPrice
+              : undefined,
+        };
+
+      addItem(
+        cartProduct,
+        1
+      );
+    };
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-gray-100 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_55px_rgba(20,83,45,0.10)]">
-      
-      {/* Product Image Area */}
+    <article className="group overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
+      {/* Image */}
       <Link
         href={`/products/${product.slug}`}
-        className="relative block overflow-hidden bg-[#F1F8F3]"
+        className="relative block aspect-[4/3] overflow-hidden bg-[#EEF8F0]"
       >
-        <div className="flex aspect-square items-center justify-center">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white shadow-sm transition duration-300 group-hover:scale-105">
-            <PackageOpen
-              size={46}
+        {product.images?.[0] ? (
+          <Image
+            src={
+              product.images[0]
+                .url
+            }
+            alt={
+              product.name
+            }
+            fill
+            className="object-contain p-4 transition duration-300 group-hover:scale-105"
+            sizes="(max-width: 640px) 100vw, 320px"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <Package
+              size={45}
               strokeWidth={1.4}
               className="text-[#14532D]"
             />
           </div>
-        </div>
+        )}
 
         {product.badge && (
-          <span className="absolute left-4 top-4 rounded-full bg-[#14532D] px-3 py-1.5 text-xs font-semibold text-white">
-            {product.badge}
+          <span className="absolute left-3 top-3 rounded-full bg-[#14532D] px-3 py-1 text-xs font-semibold text-white">
+            {
+              product.badge
+            }
           </span>
         )}
 
-        <span className="absolute bottom-4 right-4 rounded-full bg-white/95 px-3 py-1 text-xs font-medium text-[#15803D] shadow-sm">
-          স্টকে আছে
-        </span>
+        {timedDiscountActive && (
+          <span className="absolute right-3 top-3 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
+            Limited Offer
+          </span>
+        )}
       </Link>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col p-5 sm:p-6">
-        <p className="font-english text-[11px] font-semibold uppercase tracking-[0.12em] text-[#15803D]">
-          {product.category}
+      <div className="p-5">
+        <p className="text-xs font-semibold text-[#15803D]">
+          {
+            product.category
+          }
         </p>
 
-        <Link href={`/products/${product.slug}`}>
-          <h3 className="mt-2 text-xl font-bold text-gray-900 transition group-hover:text-[#14532D]">
+        <Link
+          href={`/products/${product.slug}`}
+        >
+          <h2 className="mt-2 line-clamp-2 text-lg font-bold text-gray-900 transition hover:text-[#14532D]">
             {product.name}
-          </h3>
+          </h2>
         </Link>
 
         <p className="font-english mt-1 text-xs text-gray-400">
-          {product.englishName}
+          {
+            product.englishName
+          }
         </p>
 
-        <p className="mt-4 flex-1 text-sm leading-7 text-gray-500">
-          {product.shortDescription}
+        <p className="mt-3 line-clamp-2 text-sm leading-7 text-gray-500">
+          {
+            product.shortDescription
+          }
         </p>
 
         {/* Price */}
-        <div className="mt-5 flex items-end gap-2">
-          {hasDiscount ? (
-            <>
-              <span className="text-2xl font-bold text-[#14532D]">
-                ৳{product.salePrice}
-              </span>
+        <div className="mt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xl font-bold text-[#14532D]">
+              ৳
+              {currentPrice}
+            </p>
 
-              <span className="pb-1 text-sm text-gray-400 line-through">
-                ৳{product.regularPrice}
-              </span>
-            </>
-          ) : (
-            <span className="text-2xl font-bold text-[#14532D]">
-              ৳{product.regularPrice}
-            </span>
-          )}
+            {hasLowerPrice && (
+              <p className="text-sm text-gray-400 line-through">
+                ৳
+                {
+                  product.regularPrice
+                }
+              </p>
+            )}
+          </div>
+
+          <DiscountCountdown
+            enabled={
+              product.discountEnabled
+            }
+            startAt={
+              product.discountStartAt
+            }
+            endAt={
+              product.discountEndAt
+            }
+          />
         </div>
 
-        {/* Buttons */}
-        <div className="mt-5 grid grid-cols-[1fr_auto] gap-2">
+        {/* Stock */}
+        <p
+          className={`mt-4 text-xs font-semibold ${
+            product.stock > 0
+              ? "text-green-700"
+              : "text-red-500"
+          }`}
+        >
+          {product.stock > 0
+            ? `Stock: ${product.stock}`
+            : "Out of Stock"}
+        </p>
+
+        {/* Actions */}
+        <div className="mt-5 grid grid-cols-2 gap-3">
           <Link
             href={`/products/${product.slug}`}
-            className="group/button flex items-center justify-center gap-2 rounded-xl border border-[#14532D] px-4 py-3 text-sm font-semibold text-[#14532D] transition hover:bg-green-50"
+            className="flex items-center justify-center rounded-xl border border-gray-200 px-3 py-3 text-sm font-semibold text-gray-700 transition hover:border-[#14532D] hover:text-[#14532D]"
           >
             বিস্তারিত
-
-            <ArrowRight
-              size={16}
-              className="transition group-hover/button:translate-x-1"
-            />
           </Link>
 
           <button
             type="button"
-            onClick={handleAddToCart}
-            aria-label={`${product.name} কার্টে যোগ করুন`}
-            className={`flex h-12 w-12 items-center justify-center rounded-xl text-white transition ${
-              added
-                ? "bg-[#15803D]"
-                : "bg-[#14532D] hover:bg-[#166534]"
-            }`}
+            onClick={
+              handleAddToCart
+            }
+            disabled={
+              product.stock <= 0
+            }
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#14532D] px-3 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {added ? (
-              <Check size={19} />
-            ) : (
-              <ShoppingCart size={19} />
-            )}
+            <ShoppingCart
+              size={17}
+            />
+
+            Cart
           </button>
         </div>
       </div>

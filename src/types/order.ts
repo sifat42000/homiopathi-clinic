@@ -1,6 +1,17 @@
-import type { CartItem } from "@/stores/cart-store";
+export type PaymentMethod =
+  "cod";
 
-export type PaymentMethod = "cod" | "online";
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
+
+export type OrderPaymentStatus =
+  | "unpaid"
+  | "paid";
 
 export type OrderCustomer = {
   name: string;
@@ -15,24 +26,71 @@ export type OrderAddress = {
   address: string;
 };
 
-export type FrontendOrder = {
+export type OrderItem = {
+  productId: number;
+
+  productName: string;
+
+  englishName: string;
+
+  slug: string;
+
+  sku: string;
+
+  quantity: number;
+
+  unitPrice: number;
+
+  lineTotal: number;
+
+  imageUrl?: string;
+};
+
+export type OrderStatusHistory = {
+  status: OrderStatus;
+
+  at: string;
+};
+
+export type DatabaseOrder = {
+  id: string;
+
   orderNumber: string;
+
+  userId?: string | null;
 
   customer: OrderCustomer;
 
   shippingAddress: OrderAddress;
 
-  items: CartItem[];
+  items: OrderItem[];
 
   subtotal: number;
+
   deliveryCharge: number;
+
   total: number;
 
-  paymentMethod: PaymentMethod;
+  paymentMethod: "cod";
+
+  paymentStatus:
+    OrderPaymentStatus;
+
+  status: OrderStatus;
 
   orderNote?: string;
 
-  status: "pending";
+  statusHistory:
+    OrderStatusHistory[];
 
   createdAt: string;
+
+  updatedAt: string;
 };
+
+/*
+  পুরনো Frontend type import
+  কোথাও থাকলে build না ভাঙার জন্য।
+*/
+export type FrontendOrder =
+  DatabaseOrder;

@@ -2,394 +2,366 @@
 
 import {
   FormEvent,
-  useEffect,
   useState,
 } from "react";
-
-import Link from "next/link";
 
 import {
   CheckCircle2,
   Clock3,
+  Loader2,
   PackageCheck,
-  PackageOpen,
   Search,
-  ShoppingBag,
   Truck,
+  XCircle,
 } from "lucide-react";
 
-import { useOrderStore } from "@/stores/order-store";
+import type {
+  OrderStatus,
+} from "@/types/order";
 
-import type { FrontendOrder } from "@/types/order";
+type TrackingResult = {
+  orderNumber: string;
+
+  customerName: string;
+
+  items: {
+    productId: number;
+
+    productName: string;
+
+    quantity: number;
+
+    lineTotal: number;
+  }[];
+
+  subtotal: number;
+
+  deliveryCharge: number;
+
+  total: number;
+
+  paymentMethod: "cod";
+
+  paymentStatus:
+    "paid" | "unpaid";
+
+  status: OrderStatus;
+
+  statusHistory: {
+    status: OrderStatus;
+
+    at: string;
+  }[];
+
+  createdAt: string;
+};
+
+const labels: Record<
+  OrderStatus,
+  string
+> = {
+  pending:
+    "Order Received",
+
+  confirmed:
+    "Order Confirmed",
+
+  processing:
+    "Processing",
+
+  shipped:
+    "Shipped",
+
+  delivered:
+    "Delivered",
+
+  cancelled:
+    "Cancelled",
+};
 
 export default function OrderTrackingForm() {
-  const lastOrder = useOrderStore(
-    (state) => state.lastOrder
-  );
+  const [
+    order,
+    setOrder,
+  ] = useState<
+    TrackingResult | null
+  >(null);
 
-  const [mounted, setMounted] =
+  const [loading, setLoading] =
     useState(false);
 
   const [error, setError] =
     useState("");
 
-  const [foundOrder, setFoundOrder] =
-    useState<FrontendOrder | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const handleSubmit = (
+  const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
     setError("");
-    setFoundOrder(null);
+
+    setOrder(null);
 
     const formData =
-      new FormData(event.currentTarget);
-
-    const orderNumber = String(
-      formData.get("orderNumber") ?? ""
-    )
-      .trim()
-      .toUpperCase();
-
-    const phone = String(
-      formData.get("phone") ?? ""
-    ).trim();
-
-    if (!lastOrder) {
-      setError(
-        "এই Browser-এ কোনো Demo Order পাওয়া যায়নি। আগে একটি Product Order করুন।"
+      new FormData(
+        event.currentTarget
       );
 
-      return;
-    }
+    const orderNumber =
+      String(
+        formData.get(
+          "orderNumber"
+        ) ?? ""
+      ).trim();
 
-    const matches =
-      lastOrder.orderNumber.toUpperCase() ===
-        orderNumber &&
-      lastOrder.customer.phone === phone;
+    const phone =
+      String(
+        formData.get(
+          "phone"
+        ) ?? ""
+      ).trim();
 
-    if (!matches) {
-      setError(
-        "Order Number অথবা মোবাইল নম্বর সঠিক নয়।"
+    try {
+      setLoading(true);
+
+      const response =
+        await fetch(
+          `/api/orders/track?orderNumber=${encodeURIComponent(
+            orderNumber
+          )}&phone=${encodeURIComponent(
+            phone
+          )}`,
+          {
+            cache:
+              "no-store",
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message
+        );
+      }
+
+      setOrder(
+        data.order
       );
-
-      return;
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Order পাওয়া যায়নি।"
+      );
+    } finally {
+      setLoading(false);
     }
-
-    setFoundOrder(lastOrder);
   };
 
-  if (!mounted) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <p className="text-sm text-gray-400">
-          Tracking System Loading...
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-4xl">
-      
-      {/* Search Form */}
+    <div>
       <form
         onSubmit={handleSubmit}
-        className="rounded-[28px] border border-gray-100 bg-white p-6 shadow-sm sm:p-8"
+        className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm"
       >
-        <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-[#14532D]">
-            <Search size={25} />
-          </div>
+        <h2 className="text-2xl font-bold text-gray-900">
+          Order Track করুন
+        </h2>
 
-          <h2 className="mt-5 text-2xl font-bold text-gray-900 sm:text-3xl">
-            আপনার Order Track করুন
-          </h2>
+        <p className="mt-2 text-sm leading-7 text-gray-500">
+          Order Number এবং Order-এর সময় দেওয়া Mobile Number ব্যবহার করুন।
+        </p>
 
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-7 text-gray-500">
-            Order Number এবং Order করার সময় ব্যবহৃত Mobile Number দিন।
-          </p>
-        </div>
-
-        <div className="mx-auto mt-8 grid max-w-2xl gap-5 sm:grid-cols-2">
-          
-          {/* Order Number */}
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div>
-            <label
-              htmlFor="tracking-order"
-              className="mb-2 block text-sm font-semibold text-gray-700"
-            >
-              Order Number *
+            <label className="mb-2 block text-sm font-semibold text-gray-700">
+              Order Number
             </label>
 
             <input
-              id="tracking-order"
               name="orderNumber"
-              type="text"
               required
-              placeholder="HC-12345678"
-              className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 uppercase outline-none placeholder:text-gray-400 focus:border-[#14532D]"
+              placeholder="HC-XXXXXXXXXX"
+              className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
             />
           </div>
 
-          {/* Phone */}
           <div>
-            <label
-              htmlFor="tracking-phone"
-              className="mb-2 block text-sm font-semibold text-gray-700"
-            >
-              মোবাইল নম্বর *
+            <label className="mb-2 block text-sm font-semibold text-gray-700">
+              Mobile Number
             </label>
 
             <input
-              id="tracking-phone"
               name="phone"
-              type="tel"
-              inputMode="numeric"
-              maxLength={11}
               required
+              maxLength={11}
               placeholder="01XXXXXXXXX"
-              className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none placeholder:text-gray-400 focus:border-[#14532D]"
+              className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
             />
           </div>
         </div>
-
-        {error && (
-          <div className="mx-auto mt-5 max-w-2xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-7 text-red-600">
-            {error}
-          </div>
-        )}
 
         <button
           type="submit"
-          className="mx-auto mt-6 flex items-center justify-center gap-2 rounded-xl bg-[#14532D] px-7 py-3.5 font-semibold text-white transition hover:bg-[#166534]"
+          disabled={loading}
+          className="mt-5 flex items-center gap-2 rounded-xl bg-[#14532D] px-6 py-3 font-semibold text-white disabled:opacity-60"
         >
-          <Search size={18} />
+          {loading ? (
+            <Loader2
+              size={18}
+              className="animate-spin"
+            />
+          ) : (
+            <Search
+              size={18}
+            />
+          )}
 
-          Order Track করুন
+          Track Order
         </button>
-      </form>
 
-      {/* Result */}
-      {foundOrder && (
-        <div className="mt-8">
-          
-          {/* Success */}
-          <div className="flex items-start gap-3 rounded-[22px] border border-green-200 bg-green-50 p-5">
-            <CheckCircle2
-              size={21}
-              className="mt-0.5 shrink-0 text-[#15803D]"
+        {error && (
+          <div className="mt-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <XCircle
+              size={18}
             />
 
+            {error}
+          </div>
+        )}
+      </form>
+
+      {order && (
+        <div className="mt-6 rounded-[26px] border border-green-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row">
             <div>
-              <p className="font-semibold text-[#166534]">
-                Order পাওয়া গেছে
+              <p className="text-xs font-semibold text-gray-400">
+                ORDER
               </p>
 
-              <p className="font-english mt-1 text-sm text-gray-600">
-                {foundOrder.orderNumber}
+              <p className="font-english mt-1 text-lg font-bold text-[#14532D]">
+                {
+                  order.orderNumber
+                }
+              </p>
+            </div>
+
+            <div className="sm:text-right">
+              <p className="font-bold text-gray-900">
+                {
+                  labels[
+                    order.status
+                  ]
+                }
+              </p>
+
+              <p className="mt-1 text-xs text-gray-400">
+                Cash on Delivery
               </p>
             </div>
           </div>
 
-          {/* Tracking */}
-          <div className="mt-6 rounded-[28px] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-            <h2 className="text-xl font-bold text-gray-900">
-              Order Status
-            </h2>
-
-            <div className="mt-7 grid gap-3 sm:grid-cols-4">
-              
-              {/* Placed */}
-              <div className="rounded-2xl border border-green-200 bg-green-50 p-5 text-center">
-                <CheckCircle2
-                  size={24}
-                  className="mx-auto text-[#15803D]"
-                />
-
-                <p className="mt-3 text-sm font-bold text-gray-800">
-                  Order Placed
-                </p>
-
-                <p className="mt-1 text-xs text-green-700">
-                  Complete
-                </p>
-              </div>
-
-              {/* Pending */}
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
-                <Clock3
-                  size={24}
-                  className="mx-auto text-amber-600"
-                />
-
-                <p className="mt-3 text-sm font-bold text-gray-800">
-                  Confirmation
-                </p>
-
-                <p className="mt-1 text-xs text-amber-700">
-                  Pending
-                </p>
-              </div>
-
-              {/* Processing */}
-              <div className="rounded-2xl border border-gray-100 bg-[#FAFAF7] p-5 text-center">
-                <PackageCheck
-                  size={24}
-                  className="mx-auto text-gray-400"
-                />
-
-                <p className="mt-3 text-sm font-bold text-gray-600">
-                  Processing
-                </p>
-
-                <p className="mt-1 text-xs text-gray-400">
-                  Waiting
-                </p>
-              </div>
-
-              {/* Delivery */}
-              <div className="rounded-2xl border border-gray-100 bg-[#FAFAF7] p-5 text-center">
-                <Truck
-                  size={24}
-                  className="mx-auto text-gray-400"
-                />
-
-                <p className="mt-3 text-sm font-bold text-gray-600">
-                  Delivery
-                </p>
-
-                <p className="mt-1 text-xs text-gray-400">
-                  Waiting
-                </p>
-              </div>
-            </div>
-
-            {/* Order Information */}
-            <div className="mt-8 grid gap-6 md:grid-cols-[1fr_280px]">
-              
-              {/* Products */}
-              <div>
-                <h3 className="font-bold text-gray-900">
-                  Products
-                </h3>
-
-                <div className="mt-4 space-y-3">
-                  {foundOrder.items.map(
-                    (item) => {
-                      const price =
-                        item.salePrice ??
-                        item.regularPrice;
-
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex items-center gap-3 rounded-xl border border-gray-100 p-3"
-                        >
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#EEF8F0]">
-                            <PackageOpen
-                              size={22}
-                              className="text-[#14532D]"
-                            />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-gray-800">
-                              {item.name}
-                            </p>
-
-                            <p className="font-english mt-1 text-xs text-gray-400">
-                              {item.quantity} × ৳
-                              {price}
-                            </p>
-                          </div>
-
-                          <p className="font-semibold text-gray-800">
-                            ৳
-                            {price *
-                              item.quantity}
-                          </p>
-                        </div>
-                      );
-                    }
-                  )}
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="rounded-2xl bg-[#F7FBF8] p-5">
-                <p className="text-sm font-bold text-gray-900">
-                  Summary
-                </p>
-
-                <div className="mt-4 space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">
-                      Subtotal
-                    </span>
-
-                    <span className="font-semibold">
-                      ৳{foundOrder.subtotal}
-                    </span>
+          {/* History */}
+          <div className="mt-7 space-y-4">
+            {order.statusHistory.map(
+              (
+                history,
+                index
+              ) => (
+                <div
+                  key={`${history.status}-${index}`}
+                  className="flex items-start gap-3"
+                >
+                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-[#15803D]">
+                    {history.status ===
+                    "delivered" ? (
+                      <PackageCheck
+                        size={17}
+                      />
+                    ) : history.status ===
+                      "shipped" ? (
+                      <Truck
+                        size={17}
+                      />
+                    ) : history.status ===
+                      "cancelled" ? (
+                      <XCircle
+                        size={17}
+                      />
+                    ) : history.status ===
+                      "pending" ? (
+                      <Clock3
+                        size={17}
+                      />
+                    ) : (
+                      <CheckCircle2
+                        size={17}
+                      />
+                    )}
                   </div>
 
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">
-                      Delivery
-                    </span>
-
-                    <span className="font-semibold">
-                      ৳
+                  <div>
+                    <p className="font-semibold text-gray-800">
                       {
-                        foundOrder.deliveryCharge
+                        labels[
+                          history.status
+                        ]
                       }
-                    </span>
-                  </div>
+                    </p>
 
-                  <div className="h-px bg-gray-200" />
-
-                  <div className="flex items-end justify-between">
-                    <span className="font-semibold">
-                      Total
-                    </span>
-
-                    <span className="text-xl font-bold text-[#14532D]">
-                      ৳{foundOrder.total}
-                    </span>
+                    <p className="font-english mt-1 text-xs text-gray-400">
+                      {new Date(
+                        history.at
+                      ).toLocaleString()}
+                    </p>
                   </div>
                 </div>
-              </div>
+              )
+            )}
+          </div>
+
+          <div className="mt-7 rounded-2xl bg-[#F7FBF8] p-5">
+            {order.items.map(
+              (item) => (
+                <div
+                  key={
+                    item.productId
+                  }
+                  className="flex justify-between gap-4 border-b border-gray-100 py-2 last:border-0"
+                >
+                  <span className="text-sm">
+                    {
+                      item.productName
+                    }{" "}
+                    ×{" "}
+                    {
+                      item.quantity
+                    }
+                  </span>
+
+                  <span className="font-semibold">
+                    ৳
+                    {
+                      item.lineTotal
+                    }
+                  </span>
+                </div>
+              )
+            )}
+
+            <div className="mt-4 flex justify-between border-t border-gray-200 pt-4 text-lg font-bold">
+              <span>Total</span>
+
+              <span className="text-[#14532D]">
+                ৳
+                {order.total}
+              </span>
             </div>
           </div>
         </div>
       )}
-
-      {/* Demo Notice */}
-      <div className="mt-6 rounded-2xl border border-amber-100 bg-amber-50 p-5">
-        <p className="text-sm leading-7 text-amber-900">
-          Frontend Demo পর্যায়ে Order Tracking শুধু এই Browser-এ তৈরি হওয়া
-          সর্বশেষ Order খুঁজতে পারবে। Backend যুক্ত হলে Order Number এবং
-          Mobile Number দিয়ে MongoDB থেকে যেকোনো Order-এর Real Status দেখা
-          যাবে।
-        </p>
-      </div>
-
-      <div className="mt-6 text-center">
-        <Link
-          href="/products"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-[#14532D]"
-        >
-          <ShoppingBag size={17} />
-
-          নতুন Product Order করুন
-        </Link>
-      </div>
     </div>
   );
 }

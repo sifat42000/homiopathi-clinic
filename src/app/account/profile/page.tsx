@@ -1,76 +1,38 @@
 import {
-  Mail,
-  Phone,
   UserRound,
 } from "lucide-react";
 
+import CustomerProfileForm from "@/components/account/CustomerProfileForm";
 import AccountLayout from "@/components/account/AccountLayout";
 import PublicLayout from "@/components/layout/PublicLayout";
 
-export default function ProfilePage() {
+export default function AccountProfilePage() {
   return (
     <PublicLayout>
-      <section className="bg-[#F7FBF8] py-12 sm:py-16 lg:py-20">
+      <section className="min-h-[calc(100vh-180px)] bg-[#F7FBF8] py-10 sm:py-14 lg:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <AccountLayout>
-            <div className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-              <h1 className="text-3xl font-bold text-gray-900">
-                Profile
-              </h1>
+            <div className="mb-7 flex items-start justify-between gap-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#15803D]">
+                  My Account / Personal Details
+                </p>
 
-              <p className="mt-2 text-sm text-gray-500">
-                Backend Phase-এ Customer নিজের Profile Information Update
-                করতে পারবেন।
-              </p>
+                <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+                  আমার Profile
+                </h1>
 
-              <div className="mt-8 grid gap-5 sm:grid-cols-2">
-                
-                <div className="rounded-2xl bg-[#F7FBF8] p-5">
-                  <UserRound
-                    size={20}
-                    className="text-[#14532D]"
-                  />
+                <p className="mt-2 max-w-xl text-sm leading-7 text-gray-500">
+                  আপনার Contact এবং Delivery Information আপডেট করে রাখুন।
+                </p>
+              </div>
 
-                  <p className="mt-3 text-xs text-gray-400">
-                    Name
-                  </p>
-
-                  <p className="mt-1 font-semibold text-gray-800">
-                    Demo Customer
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-[#F7FBF8] p-5">
-                  <Mail
-                    size={20}
-                    className="text-[#14532D]"
-                  />
-
-                  <p className="mt-3 text-xs text-gray-400">
-                    Email
-                  </p>
-
-                  <p className="font-english mt-1 text-sm font-semibold text-gray-800">
-                    customer@example.com
-                  </p>
-                </div>
-
-                <div className="rounded-2xl bg-[#F7FBF8] p-5">
-                  <Phone
-                    size={20}
-                    className="text-[#14532D]"
-                  />
-
-                  <p className="mt-3 text-xs text-gray-400">
-                    Phone
-                  </p>
-
-                  <p className="mt-1 text-sm text-gray-500">
-                    Backend-এর পর দেখাবে
-                  </p>
-                </div>
+              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#DDF4E4] text-[#14532D] sm:flex">
+                <UserRound size={23} />
               </div>
             </div>
+
+            <CustomerProfileForm />
           </AccountLayout>
         </div>
       </section>

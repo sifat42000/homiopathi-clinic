@@ -1,121 +1,186 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
 
 import {
-  Power,
+  CalendarDays,
+  Loader2,
+  Mail,
+  MapPin,
+  Package,
+  Phone,
   Search,
-  UserCheck,
-  Users,
-  UserX,
+  ShoppingCart,
+  Star,
+  UserRound,
+  X,
 } from "lucide-react";
 
-import { useAdminOperationsStore } from "@/stores/admin-operations-store";
+import type {
+  AdminCustomerDetails,
+  AdminCustomerSummary,
+} from "@/types/admin-customer";
 
 export default function AdminCustomersManager() {
-  const customers =
-    useAdminOperationsStore(
-      (state) =>
-        state.customers
-    );
+  const [
+    customers,
+    setCustomers,
+  ] = useState<
+    AdminCustomerSummary[]
+  >([]);
 
-  const toggleCustomerStatus =
-    useAdminOperationsStore(
-      (state) =>
-        state.toggleCustomerStatus
-    );
+  const [
+    selectedCustomer,
+    setSelectedCustomer,
+  ] = useState<
+    AdminCustomerDetails | null
+  >(null);
 
-  const [mounted, setMounted] =
-    useState(false);
+  const [loading, setLoading] =
+    useState(true);
+
+  const [
+    detailsLoading,
+    setDetailsLoading,
+  ] = useState(false);
 
   const [search, setSearch] =
     useState("");
 
-  const [statusFilter, setStatusFilter] =
-    useState("all");
+  const [error, setError] =
+    useState("");
+
+  const loadCustomers =
+    useCallback(async () => {
+      try {
+        setLoading(true);
+
+        const response =
+          await fetch(
+            "/api/admin/customers",
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
+
+        setCustomers(
+          data.customers ??
+            []
+        );
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Customers load করা যায়নি।"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }, []);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    loadCustomers();
+  }, [loadCustomers]);
 
-  const filteredCustomers =
+  const filtered =
     useMemo(() => {
-      let result = [
-        ...customers,
-      ];
-
       const query =
         search
           .trim()
           .toLowerCase();
 
-      if (query) {
-        result = result.filter(
-          (customer) =>
-            customer.name
-              .toLowerCase()
-              .includes(query) ||
-            customer.phone.includes(
-              query
-            ) ||
-            customer.email
-              ?.toLowerCase()
-              .includes(query)
-        );
+      if (!query) {
+        return customers;
       }
 
-      if (
-        statusFilter ===
-        "active"
-      ) {
-        result =
-          result.filter(
-            (customer) =>
-              customer.active
-          );
-      }
-
-      if (
-        statusFilter ===
-        "blocked"
-      ) {
-        result =
-          result.filter(
-            (customer) =>
-              !customer.active
-          );
-      }
-
-      return result;
+      return customers.filter(
+        (customer) =>
+          customer.name
+            .toLowerCase()
+            .includes(query) ||
+          customer.email
+            .toLowerCase()
+            .includes(query) ||
+          customer.phone.includes(
+            query
+          )
+      );
     }, [
       customers,
       search,
-      statusFilter,
     ]);
 
-  if (!mounted) {
-    return (
-      <div className="py-20 text-center text-sm text-gray-400">
-        Customers Loading...
-      </div>
-    );
-  }
+  const openCustomer =
+    async (
+      customer:
+        AdminCustomerSummary
+    ) => {
+      try {
+        setDetailsLoading(
+          true
+        );
 
-  const activeCustomers =
-    customers.filter(
-      (customer) =>
-        customer.active
-    ).length;
+        setError("");
 
-  const totalSpent =
+        const response =
+          await fetch(
+            `/api/admin/customers/${encodeURIComponent(
+              customer.userId
+            )}`,
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
+
+        setSelectedCustomer(
+          data.customer
+        );
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Customer Details পাওয়া যায়নি।"
+        );
+      } finally {
+        setDetailsLoading(
+          false
+        );
+      }
+    };
+
+  const totalPurchase =
     customers.reduce(
-      (total, customer) =>
+      (
+        total,
+        customer
+      ) =>
         total +
-        customer.totalSpent,
+        customer.totalPurchase,
       0
     );
 
@@ -123,7 +188,7 @@ export default function AdminCustomersManager() {
     <div>
       <div>
         <p className="text-sm font-semibold text-[#15803D]">
-          Customers
+          Real Customers
         </p>
 
         <h1 className="mt-1 text-3xl font-bold text-gray-900">
@@ -131,58 +196,75 @@ export default function AdminCustomersManager() {
         </h1>
 
         <p className="mt-2 text-sm text-gray-500">
-          Customer Information এবং Account Status Manage করুন।
+          Registered Customer, Order, Purchase এবং Appointment Information।
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="mt-7 grid gap-4 sm:grid-cols-3">
+      <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-[22px] border border-gray-100 bg-white p-5 shadow-sm">
-          <Users
-            size={21}
+          <UserRound
+            size={22}
             className="text-[#14532D]"
           />
 
-          <p className="font-english mt-4 text-3xl font-bold text-gray-900">
-            {customers.length}
+          <p className="mt-4 text-3xl font-bold">
+            {
+              customers.length
+            }
           </p>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Total Customers
+          <p className="text-sm text-gray-500">
+            Registered Customers
           </p>
         </div>
 
         <div className="rounded-[22px] border border-gray-100 bg-white p-5 shadow-sm">
-          <UserCheck
-            size={21}
-            className="text-green-600"
+          <ShoppingCart
+            size={22}
+            className="text-[#14532D]"
           />
 
-          <p className="font-english mt-4 text-3xl font-bold text-gray-900">
-            {activeCustomers}
+          <p className="mt-4 text-3xl font-bold">
+            {customers.reduce(
+              (
+                total,
+                customer
+              ) =>
+                total +
+                customer.totalOrders,
+              0
+            )}
           </p>
 
-          <p className="mt-1 text-sm text-gray-500">
-            Active
+          <p className="text-sm text-gray-500">
+            Customer Orders
           </p>
         </div>
 
         <div className="rounded-[22px] bg-[#14532D] p-5 text-white">
-          <Users size={21} />
+          <Package
+            size={22}
+          />
 
           <p className="mt-4 text-3xl font-bold">
-            ৳{totalSpent}
+            ৳
+            {totalPurchase.toLocaleString()}
           </p>
 
-          <p className="mt-1 text-sm text-green-100/70">
-            Customer Value
+          <p className="text-sm text-green-100/70">
+            Delivered Purchase
           </p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="mt-7 grid gap-3 rounded-[22px] border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-[1fr_200px]">
-        <div className="relative">
+      {error && (
+        <div className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      <div className="mt-7 rounded-[22px] border border-gray-100 bg-white p-4">
+        <div className="relative max-w-2xl">
           <Search
             size={18}
             className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -190,157 +272,432 @@ export default function AdminCustomersManager() {
 
           <input
             value={search}
-            onChange={(event) =>
+            onChange={(e) =>
               setSearch(
-                event.target.value
+                e.target.value
               )
             }
-            placeholder="Name, Phone অথবা Email..."
-            className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4 outline-none focus:border-[#14532D]"
+            placeholder="Name, Email অথবা Phone Search..."
+            className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4"
           />
         </div>
-
-        <select
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(
-              event.target.value
-            )
-          }
-          className="rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none"
-        >
-          <option value="all">
-            All Customers
-          </option>
-
-          <option value="active">
-            Active
-          </option>
-
-          <option value="blocked">
-            Blocked
-          </option>
-        </select>
       </div>
 
-      {/* Table */}
-      <div className="mt-6 overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
-            <thead className="bg-[#F7FBF8]">
-              <tr className="text-left text-xs font-semibold uppercase text-gray-500">
-                <th className="px-5 py-4">
-                  Customer
-                </th>
-
-                <th className="px-5 py-4">
-                  Phone
-                </th>
-
-                <th className="px-5 py-4">
-                  Orders
-                </th>
-
-                <th className="px-5 py-4">
-                  Spent
-                </th>
-
-                <th className="px-5 py-4">
-                  Status
-                </th>
-
-                <th className="px-5 py-4 text-right">
-                  Action
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-gray-100">
-              {filteredCustomers.map(
-                (customer) => (
-                  <tr
-                    key={
-                      customer.id
-                    }
-                  >
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-gray-900">
-                        {
-                          customer.name
-                        }
-                      </p>
-
-                      <p className="font-english mt-1 text-xs text-gray-400">
-                        {customer.email ??
-                          "No Email"}
-                      </p>
-                    </td>
-
-                    <td className="font-english px-5 py-4 text-sm">
-                      {
-                        customer.phone
-                      }
-                    </td>
-
-                    <td className="font-english px-5 py-4 font-semibold">
-                      {
-                        customer.totalOrders
-                      }
-                    </td>
-
-                    <td className="px-5 py-4 font-bold text-[#14532D]">
-                      ৳
-                      {
-                        customer.totalSpent
-                      }
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          customer.active
-                            ? "bg-green-50 text-green-700"
-                            : "bg-red-50 text-red-600"
-                        }`}
-                      >
-                        {customer.active
-                          ? "Active"
-                          : "Blocked"}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          toggleCustomerStatus(
-                            customer.id
-                          )
-                        }
-                        className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${
-                          customer.active
-                            ? "bg-red-50 text-red-600"
-                            : "bg-green-50 text-green-700"
-                        }`}
-                      >
-                        {customer.active ? (
-                          <UserX size={15} />
-                        ) : (
-                          <Power size={15} />
-                        )}
-
-                        {customer.active
-                          ? "Block"
-                          : "Activate"}
-                      </button>
-                    </td>
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
+      {loading ? (
+        <div className="py-20">
+          <Loader2
+            size={30}
+            className="mx-auto animate-spin text-[#14532D]"
+          />
         </div>
-      </div>
+      ) : (
+        <div className="mt-6 overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[950px]">
+              <thead className="bg-[#F7FBF8]">
+                <tr className="text-left text-xs text-gray-500">
+                  <th className="px-5 py-4">
+                    Customer
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Phone
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Orders
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Purchase
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Appointment
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Reviews
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-100">
+                {filtered.map(
+                  (customer) => (
+                    <tr
+                      key={
+                        customer.userId
+                      }
+                    >
+                      <td className="px-5 py-4">
+                        <p className="font-semibold">
+                          {
+                            customer.name
+                          }
+                        </p>
+
+                        <p className="font-english mt-1 text-xs text-gray-400">
+                          {
+                            customer.email
+                          }
+                        </p>
+                      </td>
+
+                      <td className="font-english px-5 py-4 text-sm">
+                        {customer.phone ||
+                          "—"}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {
+                          customer.totalOrders
+                        }
+                      </td>
+
+                      <td className="px-5 py-4 font-semibold">
+                        ৳
+                        {customer.totalPurchase.toLocaleString()}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {
+                          customer.totalAppointments
+                        }
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {
+                          customer.totalReviews
+                        }
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openCustomer(
+                              customer
+                            )
+                          }
+                          className="rounded-xl bg-[#14532D] px-4 py-2 text-xs font-semibold text-white"
+                        >
+                          Details
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {detailsLoading && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30">
+          <div className="rounded-2xl bg-white p-7">
+            <Loader2
+              size={30}
+              className="animate-spin text-[#14532D]"
+            />
+          </div>
+        </div>
+      )}
+
+      {selectedCustomer && (
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/40 p-4">
+          <div className="mx-auto my-6 max-w-5xl rounded-[28px] bg-white p-6 shadow-xl sm:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold">
+                  {
+                    selectedCustomer.name
+                  }
+                </h2>
+
+                <p className="font-english mt-1 text-sm text-gray-400">
+                  {
+                    selectedCustomer.email
+                  }
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedCustomer(
+                    null
+                  )
+                }
+                className="rounded-lg p-2"
+              >
+                <X size={21} />
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatBox
+                label="Orders"
+                value={
+                  selectedCustomer.totalOrders
+                }
+              />
+
+              <StatBox
+                label="Delivered"
+                value={
+                  selectedCustomer.deliveredOrders
+                }
+              />
+
+              <StatBox
+                label="Purchase"
+                value={`৳${selectedCustomer.totalPurchase.toLocaleString()}`}
+              />
+
+              <StatBox
+                label="Appointments"
+                value={
+                  selectedCustomer.totalAppointments
+                }
+              />
+            </div>
+
+            <div className="mt-7 rounded-2xl bg-[#F7FBF8] p-5">
+              <div className="space-y-3 text-sm">
+                <p className="flex items-center gap-2">
+                  <Phone
+                    size={16}
+                  />
+
+                  {selectedCustomer.phone ||
+                    "No Phone"}
+                </p>
+
+                <p className="flex items-center gap-2">
+                  <Mail
+                    size={16}
+                  />
+
+                  {
+                    selectedCustomer.email
+                  }
+                </p>
+
+                <p className="flex items-start gap-2">
+                  <MapPin
+                    size={16}
+                    className="mt-1 shrink-0"
+                  />
+
+                  {[
+                    selectedCustomer
+                      .profile
+                      .address,
+
+                    selectedCustomer
+                      .profile.area,
+
+                    selectedCustomer
+                      .profile
+                      .district,
+
+                    selectedCustomer
+                      .profile
+                      .division,
+                  ]
+                    .filter(
+                      Boolean
+                    )
+                    .join(", ") ||
+                    "Address নেই"}
+                </p>
+              </div>
+            </div>
+
+            <section className="mt-8">
+              <h3 className="flex items-center gap-2 text-xl font-bold">
+                <ShoppingCart
+                  size={20}
+                />
+
+                Orders
+              </h3>
+
+              <div className="mt-4 space-y-3">
+                {selectedCustomer.orders.length >
+                0 ? (
+                  selectedCustomer.orders.map(
+                    (order) => (
+                      <div
+                        key={
+                          order.id
+                        }
+                        className="flex flex-col justify-between gap-3 rounded-xl border border-gray-100 p-4 sm:flex-row"
+                      >
+                        <div>
+                          <p className="font-english font-bold text-[#14532D]">
+                            {
+                              order.orderNumber
+                            }
+                          </p>
+
+                          <p className="mt-1 text-xs uppercase text-gray-400">
+                            {
+                              order.status
+                            }
+                          </p>
+                        </div>
+
+                        <p className="font-bold">
+                          ৳
+                          {
+                            order.total
+                          }
+                        </p>
+                      </div>
+                    )
+                  )
+                ) : (
+                  <p className="text-sm text-gray-400">
+                    কোনো Order নেই।
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section className="mt-8">
+              <h3 className="flex items-center gap-2 text-xl font-bold">
+                <CalendarDays
+                  size={20}
+                />
+
+                Appointments
+              </h3>
+
+              <div className="mt-4 space-y-3">
+                {selectedCustomer.appointments.length >
+                0 ? (
+                  selectedCustomer.appointments.map(
+                    (
+                      appointment
+                    ) => (
+                      <div
+                        key={
+                          appointment.id
+                        }
+                        className="rounded-xl border border-gray-100 p-4"
+                      >
+                        <p className="font-bold">
+                          {
+                            appointment
+                              .treatment
+                              .title
+                          }
+                        </p>
+
+                        <p className="font-english mt-1 text-sm text-gray-500">
+                          {
+                            appointment.date
+                          }{" "}
+                          •{" "}
+                          {
+                            appointment.time
+                          }
+                        </p>
+
+                        <p className="mt-1 text-xs uppercase text-gray-400">
+                          {
+                            appointment.status
+                          }
+                        </p>
+                      </div>
+                    )
+                  )
+                ) : (
+                  <p className="text-sm text-gray-400">
+                    কোনো Appointment নেই।
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section className="mt-8">
+              <h3 className="flex items-center gap-2 text-xl font-bold">
+                <Star
+                  size={20}
+                />
+
+                Reviews
+              </h3>
+
+              <div className="mt-4 space-y-3">
+                {selectedCustomer.reviews.length >
+                0 ? (
+                  selectedCustomer.reviews.map(
+                    (review) => (
+                      <div
+                        key={
+                          review.id
+                        }
+                        className="rounded-xl border border-gray-100 p-4"
+                      >
+                        <p className="font-semibold">
+                          {
+                            review.service
+                          }{" "}
+                          •{" "}
+                          {
+                            review.rating
+                          }
+                          /5
+                        </p>
+
+                        <p className="mt-2 text-sm leading-7 text-gray-500">
+                          {
+                            review.review
+                          }
+                        </p>
+                      </div>
+                    )
+                  )
+                ) : (
+                  <p className="text-sm text-gray-400">
+                    কোনো Review নেই।
+                  </p>
+                )}
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatBox({
+  label,
+  value,
+}: {
+  label: string;
+
+  value:
+    string | number;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-100 p-4">
+      <p className="text-xs text-gray-400">
+        {label}
+      </p>
+
+      <p className="mt-2 text-2xl font-bold text-gray-900">
+        {value}
+      </p>
     </div>
   );
 }

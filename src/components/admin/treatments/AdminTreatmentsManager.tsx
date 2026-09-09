@@ -2,114 +2,90 @@
 
 import {
   FormEvent,
+  useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
 import {
   CheckCircle2,
+  Clock3,
+  Loader2,
   Pencil,
   Plus,
   Power,
-  Stethoscope,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
 
-import { useAdminOperationsStore } from "@/stores/admin-operations-store";
+import type {
+  DatabaseTreatment,
+  TreatmentAvailability,
+} from "@/types/treatment";
 
 type TreatmentForm = {
   title: string;
+
   englishTitle: string;
-
-  fee: string;
-  duration: string;
-
-  availability: string;
 
   description: string;
 
   fullDescription: string;
-};
 
-const emptyForm: TreatmentForm = {
-  title: "",
-  englishTitle: "",
-  fee: "",
-  duration: "",
+  fee: string;
+
+  duration: string;
+
   availability:
-    "Appointment অনুযায়ী",
-  description: "",
-  fullDescription: "",
+    TreatmentAvailability;
 };
 
-function makeSlug(
-  value: string
-) {
-  const slug = value
-    .toLowerCase()
-    .trim()
-    .replace(
-      /[^a-z0-9]+/g,
-      "-"
-    )
-    .replace(
-      /^-+|-+$/g,
-      ""
-    );
+const emptyForm:
+  TreatmentForm = {
+  title: "",
 
-  return (
-    slug ||
-    `treatment-${Date.now()}`
-  );
-}
+  englishTitle: "",
+
+  description: "",
+
+  fullDescription: "",
+
+  fee: "",
+
+  duration: "30",
+
+  availability:
+    "available",
+};
 
 export default function AdminTreatmentsManager() {
-  const treatments =
-    useAdminOperationsStore(
-      (state) =>
-        state.treatments
-    );
+  const [
+    treatments,
+    setTreatments,
+  ] = useState<
+    DatabaseTreatment[]
+  >([]);
 
-  const addTreatment =
-    useAdminOperationsStore(
-      (state) =>
-        state.addTreatment
-    );
+  const [loading, setLoading] =
+    useState(true);
 
-  const updateTreatment =
-    useAdminOperationsStore(
-      (state) =>
-        state.updateTreatment
-    );
-
-  const deleteTreatment =
-    useAdminOperationsStore(
-      (state) =>
-        state.deleteTreatment
-    );
-
-  const toggleTreatmentStatus =
-    useAdminOperationsStore(
-      (state) =>
-        state.toggleTreatmentStatus
-    );
-
-  const [mounted, setMounted] =
+  const [saving, setSaving] =
     useState(false);
 
   const [showForm, setShowForm] =
     useState(false);
 
-  const [editingId, setEditingId] =
-    useState<number | null>(
-      null
-    );
+  const [
+    editingId,
+    setEditingId,
+  ] = useState<
+    string | null
+  >(null);
 
-  const [form, setForm] =
-    useState<TreatmentForm>(
-      emptyForm
-    );
+  const [search, setSearch] =
+    useState("");
 
   const [error, setError] =
     useState("");
@@ -117,57 +93,126 @@ export default function AdminTreatmentsManager() {
   const [success, setSuccess] =
     useState("");
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="py-20 text-center text-sm text-gray-400">
-        Treatments Loading...
-      </div>
+  const [form, setForm] =
+    useState<TreatmentForm>(
+      emptyForm
     );
-  }
+
+  const loadTreatments =
+    useCallback(async () => {
+      try {
+        setLoading(true);
+
+        const response =
+          await fetch(
+            "/api/treatments?admin=1",
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
+
+        setTreatments(
+          data.treatments ??
+            []
+        );
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Treatments load করা যায়নি।"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }, []);
+
+  useEffect(() => {
+    loadTreatments();
+  }, [loadTreatments]);
+
+  const filtered =
+    useMemo(() => {
+      const query =
+        search
+          .trim()
+          .toLowerCase();
+
+      if (!query) {
+        return treatments;
+      }
+
+      return treatments.filter(
+        (treatment) =>
+          treatment.title
+            .toLowerCase()
+            .includes(query) ||
+          treatment.englishTitle
+            .toLowerCase()
+            .includes(query)
+      );
+    }, [
+      treatments,
+      search,
+    ]);
 
   const updateField = (
-    field: keyof TreatmentForm,
+    field:
+      keyof TreatmentForm,
+
     value: string
   ) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setForm(
+      (current) => ({
+        ...current,
+
+        [field]:
+          value,
+      })
+    );
   };
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm(
+      emptyForm
+    );
 
-    setEditingId(null);
+    setEditingId(
+      null
+    );
 
-    setShowForm(false);
+    setShowForm(
+      false
+    );
 
     setError("");
   };
 
   const startEdit = (
-    id: number
+    treatment:
+      DatabaseTreatment
   ) => {
-    const treatment =
-      treatments.find(
-        (item) =>
-          item.id === id
-      );
-
-    if (!treatment) {
-      return;
-    }
-
     setForm({
       title:
         treatment.title,
 
       englishTitle:
         treatment.englishTitle,
+
+      description:
+        treatment.description,
+
+      fullDescription:
+        treatment.fullDescription,
 
       fee:
         String(
@@ -181,19 +226,16 @@ export default function AdminTreatmentsManager() {
 
       availability:
         treatment.availability,
-
-      description:
-        treatment.description,
-
-      fullDescription:
-        treatment.fullDescription,
     });
 
-    setEditingId(id);
+    setEditingId(
+      treatment.databaseId
+    );
 
     setShowForm(true);
 
     setError("");
+
     setSuccess("");
 
     window.scrollTo({
@@ -202,136 +244,191 @@ export default function AdminTreatmentsManager() {
     });
   };
 
-  const handleSubmit = (
-    event: FormEvent<HTMLFormElement>
+  const handleSubmit = async (
+    event:
+      FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
-    setError("");
-    setSuccess("");
+    try {
+      setSaving(true);
 
-    const fee =
-      Number(form.fee);
+      setError("");
 
-    const duration =
-      Number(form.duration);
+      setSuccess("");
 
-    if (
-      fee < 0 ||
-      duration <= 0
-    ) {
-      setError(
-        "Fee এবং Duration সঠিকভাবে দিন।"
+      const response =
+        await fetch(
+          editingId
+            ? `/api/treatments/${editingId}`
+            : "/api/treatments",
+          {
+            method:
+              editingId
+                ? "PATCH"
+                : "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                title:
+                  form.title,
+
+                englishTitle:
+                  form.englishTitle,
+
+                description:
+                  form.description,
+
+                fullDescription:
+                  form.fullDescription,
+
+                fee:
+                  Number(
+                    form.fee
+                  ),
+
+                duration:
+                  Number(
+                    form.duration
+                  ),
+
+                availability:
+                  form.availability,
+              }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message
+        );
+      }
+
+      setSuccess(
+        editingId
+          ? "Treatment Update হয়েছে।"
+          : "Treatment Add হয়েছে।"
       );
 
-      return;
+      resetForm();
+
+      await loadTreatments();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Treatment Save করা যায়নি।"
+      );
+    } finally {
+      setSaving(false);
     }
+  };
 
-    const existing =
-      editingId
-        ? treatments.find(
-            (item) =>
-              item.id ===
-              editingId
-          )
-        : undefined;
+  const toggleActive =
+    async (
+      treatment:
+        DatabaseTreatment
+    ) => {
+      try {
+        const response =
+          await fetch(
+            `/api/treatments/${treatment.databaseId}`,
+            {
+              method:
+                "PATCH",
 
-    const treatmentData = {
-      title:
-        form.title.trim(),
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-      englishTitle:
-        form.englishTitle.trim(),
+              body:
+                JSON.stringify({
+                  active:
+                    !treatment.active,
+                }),
+            }
+          );
 
-      slug:
-        existing?.slug ??
-        makeSlug(
-          form.englishTitle
-        ),
+        const data =
+          await response.json();
 
-      description:
-        form.description.trim(),
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
 
-      fullDescription:
-        form.fullDescription.trim(),
-
-      icon:
-        existing?.icon ??
-        "stethoscope",
-
-      fee,
-
-      duration,
-
-      availability:
-        form.availability.trim(),
+        await loadTreatments();
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Status change করা যায়নি।"
+        );
+      }
     };
 
-    if (editingId) {
-      updateTreatment(
-        editingId,
-        treatmentData
-      );
+  const handleDelete =
+    async (
+      treatment:
+        DatabaseTreatment
+    ) => {
+      if (
+        !window.confirm(
+          `${treatment.title} Delete করতে চান?`
+        )
+      ) {
+        return;
+      }
 
-      setSuccess(
-        "Treatment সফলভাবে Update হয়েছে।"
-      );
-    } else {
-      addTreatment(
-        treatmentData
-      );
+      try {
+        const response =
+          await fetch(
+            `/api/treatments/${treatment.databaseId}`,
+            {
+              method:
+                "DELETE",
+            }
+          );
 
-      setSuccess(
-        "নতুন Treatment Add হয়েছে।"
-      );
-    }
+        const data =
+          await response.json();
 
-    setForm(emptyForm);
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
 
-    setEditingId(null);
+        setSuccess(
+          "Treatment Delete হয়েছে।"
+        );
 
-    setShowForm(false);
-  };
-
-  const handleDelete = (
-    id: number,
-    title: string
-  ) => {
-    setError("");
-    setSuccess("");
-
-    const confirmed =
-      window.confirm(
-        `${title} Delete করতে চান?`
-      );
-
-    if (!confirmed) {
-      return;
-    }
-
-    const deleted =
-      deleteTreatment(id);
-
-    if (!deleted) {
-      setError(
-        "এই Treatment একটি Appointment-এ ব্যবহার হচ্ছে, তাই Delete করা যাচ্ছে না। চাইলে Inactive করুন।"
-      );
-
-      return;
-    }
-
-    setSuccess(
-      "Treatment Delete হয়েছে।"
-    );
-  };
+        await loadTreatments();
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Treatment Delete করা যায়নি।"
+        );
+      }
+    };
 
   return (
     <div>
-      {/* Heading */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-semibold text-[#15803D]">
-            Medical Services
+            Real Treatments
           </p>
 
           <h1 className="mt-1 text-3xl font-bold text-gray-900">
@@ -339,7 +436,7 @@ export default function AdminTreatmentsManager() {
           </h1>
 
           <p className="mt-2 text-sm text-gray-500">
-            Consultation Service, Fee এবং Duration Manage করুন।
+            Treatment, Fee, Duration এবং Availability পরিচালনা করুন।
           </p>
         </div>
 
@@ -349,10 +446,12 @@ export default function AdminTreatmentsManager() {
             if (showForm) {
               resetForm();
             } else {
-              setShowForm(true);
+              setShowForm(
+                true
+              );
             }
           }}
-          className="flex items-center justify-center gap-2 rounded-xl bg-[#14532D] px-5 py-3 text-sm font-semibold text-white"
+          className="flex items-center justify-center gap-2 rounded-xl bg-[#14532D] px-5 py-3 font-semibold text-white"
         >
           {showForm ? (
             <X size={18} />
@@ -366,317 +465,335 @@ export default function AdminTreatmentsManager() {
         </button>
       </div>
 
-      {/* Form */}
       {showForm && (
         <form
           onSubmit={handleSubmit}
           className="mt-7 rounded-[26px] border border-green-100 bg-white p-6 shadow-sm"
         >
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-xl font-bold">
             {editingId
               ? "Treatment Edit"
-              : "Treatment Add"}
+              : "নতুন Treatment"}
           </h2>
 
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
-            
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                বাংলা নাম *
-              </label>
+            <input
+              required
+              value={form.title}
+              onChange={(e) =>
+                updateField(
+                  "title",
+                  e.target.value
+                )
+              }
+              placeholder="বাংলা Treatment Name"
+              className="rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-              <input
-                required
-                value={form.title}
-                onChange={(event) =>
-                  updateField(
-                    "title",
-                    event.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
+            <input
+              required
+              value={
+                form.englishTitle
+              }
+              onChange={(e) =>
+                updateField(
+                  "englishTitle",
+                  e.target.value
+                )
+              }
+              placeholder="English Treatment Name"
+              className="font-english rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                English Name *
-              </label>
+            <input
+              required
+              type="number"
+              min="0"
+              value={form.fee}
+              onChange={(e) =>
+                updateField(
+                  "fee",
+                  e.target.value
+                )
+              }
+              placeholder="Consultation Fee"
+              className="rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-              <input
-                required
-                value={
-                  form.englishTitle
-                }
-                onChange={(event) =>
-                  updateField(
-                    "englishTitle",
-                    event.target.value
-                  )
-                }
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
+            <input
+              required
+              type="number"
+              min="5"
+              max="240"
+              value={
+                form.duration
+              }
+              onChange={(e) =>
+                updateField(
+                  "duration",
+                  e.target.value
+                )
+              }
+              placeholder="Duration (minutes)"
+              className="rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Consultation Fee *
-              </label>
+            <select
+              value={
+                form.availability
+              }
+              onChange={(e) =>
+                updateField(
+                  "availability",
+                  e.target.value
+                )
+              }
+              className="rounded-xl border border-gray-200 bg-white px-4 py-3 sm:col-span-2"
+            >
+              <option value="available">
+                Available for Appointment
+              </option>
 
-              <input
-                type="number"
-                min="0"
-                required
-                value={form.fee}
-                onChange={(event) =>
-                  updateField(
-                    "fee",
-                    event.target.value
-                  )
-                }
-                placeholder="500"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
+              <option value="unavailable">
+                Appointment Unavailable
+              </option>
+            </select>
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Duration (Minutes) *
-              </label>
+            <textarea
+              required
+              rows={3}
+              value={
+                form.description
+              }
+              onChange={(e) =>
+                updateField(
+                  "description",
+                  e.target.value
+                )
+              }
+              placeholder="Short Description"
+              className="resize-none rounded-xl border border-gray-200 px-4 py-3 sm:col-span-2"
+            />
 
-              <input
-                type="number"
-                min="1"
-                required
-                value={
-                  form.duration
-                }
-                onChange={(event) =>
-                  updateField(
-                    "duration",
-                    event.target.value
-                  )
-                }
-                placeholder="20"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Availability *
-              </label>
-
-              <input
-                required
-                value={
-                  form.availability
-                }
-                onChange={(event) =>
-                  updateField(
-                    "availability",
-                    event.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Short Description *
-              </label>
-
-              <textarea
-                required
-                rows={3}
-                value={
-                  form.description
-                }
-                onChange={(event) =>
-                  updateField(
-                    "description",
-                    event.target.value
-                  )
-                }
-                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Full Description *
-              </label>
-
-              <textarea
-                required
-                rows={5}
-                value={
-                  form.fullDescription
-                }
-                onChange={(event) =>
-                  updateField(
-                    "fullDescription",
-                    event.target.value
-                  )
-                }
-                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
+            <textarea
+              required
+              rows={6}
+              value={
+                form.fullDescription
+              }
+              onChange={(e) =>
+                updateField(
+                  "fullDescription",
+                  e.target.value
+                )
+              }
+              placeholder="Full Description"
+              className="resize-none rounded-xl border border-gray-200 px-4 py-3 sm:col-span-2"
+            />
           </div>
 
           {error && (
-            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-600">
               {error}
             </div>
           )}
 
-          <div className="mt-6 flex gap-3">
-            <button
-              type="submit"
-              className="rounded-xl bg-[#14532D] px-6 py-3 text-sm font-semibold text-white"
-            >
-              {editingId
-                ? "Update Treatment"
-                : "Save Treatment"}
-            </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="mt-6 flex items-center gap-2 rounded-xl bg-[#14532D] px-6 py-3 font-semibold text-white disabled:opacity-50"
+          >
+            {saving && (
+              <Loader2
+                size={17}
+                className="animate-spin"
+              />
+            )}
 
-            <button
-              type="button"
-              onClick={
-                resetForm
-              }
-              className="rounded-xl border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-600"
-            >
-              Cancel
-            </button>
-          </div>
+            {editingId
+              ? "Update Treatment"
+              : "Save Treatment"}
+          </button>
         </form>
       )}
 
-      {error && !showForm && (
-        <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-7 text-red-600">
-          {error}
-        </div>
-      )}
-
       {success && (
-        <div className="mt-5 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-[#166534]">
-          <CheckCircle2 size={18} />
+        <div className="mt-5 flex items-center gap-2 rounded-xl bg-green-50 p-4 text-sm text-green-700">
+          <CheckCircle2
+            size={18}
+          />
 
           {success}
         </div>
       )}
 
-      {/* Cards */}
-      <div className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {treatments.map(
-          (treatment) => (
-            <article
-              key={
-                treatment.id
-              }
-              className="rounded-[24px] border border-gray-100 bg-white p-6 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-[#14532D]">
-                  <Stethoscope
-                    size={22}
-                  />
+      <div className="mt-7 rounded-[22px] border border-gray-100 bg-white p-4">
+        <div className="relative max-w-xl">
+          <Search
+            size={18}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+
+          <input
+            value={search}
+            onChange={(e) =>
+              setSearch(
+                e.target.value
+              )
+            }
+            placeholder="Treatment Search..."
+            className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4"
+          />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="py-20">
+          <Loader2
+            size={30}
+            className="mx-auto animate-spin text-[#14532D]"
+          />
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map(
+            (treatment) => (
+              <article
+                key={
+                  treatment.databaseId
+                }
+                className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-bold">
+                      {
+                        treatment.title
+                      }
+                    </h2>
+
+                    <p className="font-english mt-1 text-xs text-gray-400">
+                      {
+                        treatment.englishTitle
+                      }
+                    </p>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      treatment.active
+                        ? "bg-green-50 text-green-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {treatment.active
+                      ? "Active"
+                      : "Inactive"}
+                  </span>
                 </div>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    treatment.active
-                      ? "bg-green-50 text-green-700"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {treatment.active
-                    ? "Active"
-                    : "Inactive"}
-                </span>
-              </div>
-
-              <p className="font-english mt-5 text-xs font-semibold uppercase text-[#15803D]">
-                {
-                  treatment.englishTitle
-                }
-              </p>
-
-              <h2 className="mt-1 text-xl font-bold text-gray-900">
-                {
-                  treatment.title
-                }
-              </h2>
-
-              <p className="mt-3 line-clamp-3 text-sm leading-7 text-gray-500">
-                {
-                  treatment.description
-                }
-              </p>
-
-              <div className="mt-5 flex gap-2">
-                <span className="rounded-full bg-[#F7FBF8] px-3 py-1.5 text-xs font-semibold text-gray-600">
-                  ৳
+                <p className="mt-4 line-clamp-3 text-sm leading-7 text-gray-500">
                   {
-                    treatment.fee
+                    treatment.description
                   }
-                </span>
+                </p>
 
-                <span className="rounded-full bg-[#F7FBF8] px-3 py-1.5 text-xs font-semibold text-gray-600">
-                  {
-                    treatment.duration
-                  }{" "}
-                  min
-                </span>
-              </div>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-[#F7FBF8] p-3">
+                    <p className="text-xs text-gray-400">
+                      Fee
+                    </p>
 
-              <div className="mt-5 flex gap-2 border-t border-gray-100 pt-4">
-                <button
-                  type="button"
-                  onClick={() =>
-                    toggleTreatmentStatus(
-                      treatment.id
-                    )
-                  }
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F7FBF8] text-gray-500"
-                  title="Status"
-                >
-                  <Power size={16} />
-                </button>
+                    <p className="mt-1 font-bold">
+                      ৳
+                      {
+                        treatment.fee
+                      }
+                    </p>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    startEdit(
-                      treatment.id
-                    )
-                  }
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600"
-                  title="Edit"
-                >
-                  <Pencil size={16} />
-                </button>
+                  <div className="rounded-xl bg-[#F7FBF8] p-3">
+                    <p className="text-xs text-gray-400">
+                      Duration
+                    </p>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleDelete(
-                      treatment.id,
-                      treatment.title
-                    )
-                  }
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"
-                  title="Delete"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </article>
-          )
-        )}
-      </div>
+                    <p className="mt-1 flex items-center gap-1 font-bold">
+                      <Clock3
+                        size={14}
+                      />
+
+                      {
+                        treatment.duration
+                      }{" "}
+                      min
+                    </p>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-xs font-semibold">
+                  Appointment:{" "}
+                  <span
+                    className={
+                      treatment.availability ===
+                      "available"
+                        ? "text-green-600"
+                        : "text-red-500"
+                    }
+                  >
+                    {
+                      treatment.availability
+                    }
+                  </span>
+                </p>
+
+                <div className="mt-5 flex gap-2 border-t border-gray-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toggleActive(
+                        treatment
+                      )
+                    }
+                    className="rounded-lg p-2"
+                  >
+                    <Power
+                      size={17}
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      startEdit(
+                        treatment
+                      )
+                    }
+                    className="rounded-lg p-2 text-blue-600"
+                  >
+                    <Pencil
+                      size={17}
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleDelete(
+                        treatment
+                      )
+                    }
+                    className="ml-auto rounded-lg p-2 text-red-500"
+                  >
+                    <Trash2
+                      size={17}
+                    />
+                  </button>
+                </div>
+              </article>
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,701 +2,812 @@
 
 import {
   FormEvent,
+  useCallback,
   useEffect,
   useState,
 } from "react";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import {
-  ArrowLeft,
+  useRouter,
+} from "next/navigation";
+
+import {
+  AlertTriangle,
   Banknote,
   CheckCircle2,
-  CreditCard,
-  LockKeyhole,
-  PackageOpen,
-  ShieldCheck,
+  Loader2,
+  MapPin,
+  Package,
+  RefreshCw,
   ShoppingBag,
   Truck,
 } from "lucide-react";
 
-import { DELIVERY_CHARGE } from "@/lib/shop-config";
-import { useCartStore } from "@/stores/cart-store";
-import { useOrderStore } from "@/stores/order-store";
+import {
+  useCartStore,
+} from "@/stores/cart-store";
 
-import type { FrontendOrder } from "@/types/order";
+type ValidatedItem = {
+  productId: number;
+
+  name: string;
+
+  englishName: string;
+
+  slug: string;
+
+  sku: string;
+
+  quantity: number;
+
+  stock: number;
+
+  unitPrice: number;
+
+  lineTotal: number;
+
+  imageUrl?: string;
+};
+
+type CartValidation = {
+  success: boolean;
+
+  valid: boolean;
+
+  shopEnabled: boolean;
+
+  items: ValidatedItem[];
+
+  issues: {
+    productId?: number;
+
+    code: string;
+
+    message: string;
+  }[];
+
+  subtotal: number;
+
+  deliveryCharge: number;
+
+  total: number;
+
+  checkedAt: string;
+};
+
+const divisions = [
+  "ঢাকা",
+  "চট্টগ্রাম",
+  "রাজশাহী",
+  "খুলনা",
+  "বরিশাল",
+  "সিলেট",
+  "রংপুর",
+  "ময়মনসিংহ",
+];
 
 export default function CheckoutClient() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
-  const items = useCartStore((state) => state.items);
+  const items =
+    useCartStore(
+      (state) =>
+        state.items
+    );
 
-  const clearCart = useCartStore(
-    (state) => state.clearCart
-  );
+  const clearCart =
+    useCartStore(
+      (state) =>
+        state.clearCart
+    );
 
-  const setLastOrder = useOrderStore(
-    (state) => state.setLastOrder
-  );
+  const [
+    validation,
+    setValidation,
+  ] = useState<
+    CartValidation | null
+  >(null);
 
-  const [mounted, setMounted] = useState(false);
+  const [
+    syncing,
+    setSyncing,
+  ] = useState(false);
 
-  const [paymentMethod, setPaymentMethod] =
-    useState<"cod" | "online">("cod");
+  const [
+    submitting,
+    setSubmitting,
+  ] = useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
+
+  const validateCart =
+    useCallback(
+      async (
+        showError = true
+      ): Promise<CartValidation | null> => {
+        if (
+          items.length === 0
+        ) {
+          setValidation(
+            null
+          );
+
+          return null;
+        }
+
+        try {
+          setSyncing(true);
+
+          if (showError) {
+            setError("");
+          }
+
+          const response =
+            await fetch(
+              "/api/cart/validate",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body:
+                  JSON.stringify({
+                    items:
+                      items.map(
+                        (item) => ({
+                          productId:
+                            item.id,
+
+                          quantity:
+                            item.quantity,
+                        })
+                      ),
+                  }),
+
+                cache:
+                  "no-store",
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.message ||
+                "Cart check করা যায়নি।"
+            );
+          }
+
+          setValidation(
+            data
+          );
+
+          if (
+            showError &&
+            data.issues?.length >
+              0
+          ) {
+            setError(
+              data.issues
+                .map(
+                  (
+                    issue: {
+                      message: string;
+                    }
+                  ) =>
+                    issue.message
+                )
+                .join(" ")
+            );
+          }
+
+          return data;
+        } catch (error) {
+          if (showError) {
+            setError(
+              error instanceof Error
+                ? error.message
+                : "Cart check করা যায়নি।"
+            );
+          }
+
+          return null;
+        } finally {
+          setSyncing(false);
+        }
+      },
+      [items]
+    );
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    validateCart(false);
+  }, [validateCart]);
 
-  if (!mounted) {
-    return (
-      <div className="flex min-h-[450px] items-center justify-center">
-        <p className="text-sm text-gray-400">
-          Checkout Loading...
-        </p>
-      </div>
-    );
-  }
-
-  const subtotal = items.reduce(
-    (total, item) => {
-      const price =
-        item.salePrice ?? item.regularPrice;
-
-      return total + price * item.quantity;
-    },
-    0
-  );
-
-  const deliveryCharge =
-    items.length > 0 ? DELIVERY_CHARGE : 0;
-
-  const total =
-    subtotal + deliveryCharge;
-
-  const totalQuantity = items.reduce(
-    (total, item) =>
-      total + item.quantity,
-    0
-  );
-
-  const createOrderNumber = () => {
-    const timestamp = Date.now()
-      .toString()
-      .slice(-8);
-
-    return `HC-${timestamp}`;
-  };
-
-  const handleSubmit = (
-    event: FormEvent<HTMLFormElement>
+  const handleSubmit = async (
+    event:
+      FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
     setError("");
 
-    if (items.length === 0) {
+    if (
+      items.length === 0
+    ) {
       setError(
-        "আপনার Cart খালি। আগে Product Cart-এ যোগ করুন।"
+        "আপনার Cart খালি।"
       );
 
       return;
     }
 
-    if (paymentMethod === "online") {
+    /*
+      Order দেওয়ার ঠিক আগে
+      আবার MongoDB থেকে
+      Price + Stock check।
+    */
+    const latest =
+      await validateCart(
+        false
+      );
+
+    if (!latest) {
       setError(
-        "Online Payment Backend Phase-এ চালু করা হবে। আপাতত Cash on Delivery নির্বাচন করুন।"
+        "Latest Product Information Check করা যায়নি। আবার চেষ্টা করুন।"
       );
 
       return;
     }
+
+    if (
+      !latest.shopEnabled
+    ) {
+      setError(
+        "বর্তমানে নতুন Product Order সাময়িকভাবে বন্ধ আছে।"
+      );
+
+      return;
+    }
+
+    if (
+      !latest.valid
+    ) {
+      setError(
+        latest.issues
+          .map(
+            (issue) =>
+              issue.message
+          )
+          .join(" ")
+      );
+
+      return;
+    }
+
+    const form =
+      event.currentTarget;
 
     const formData =
-      new FormData(event.currentTarget);
+      new FormData(form);
 
-    const name = String(
-      formData.get("name") ?? ""
-    ).trim();
-
-    const phone = String(
-      formData.get("phone") ?? ""
-    ).trim();
-
-    const email = String(
-      formData.get("email") ?? ""
-    ).trim();
-
-    const division = String(
-      formData.get("division") ?? ""
-    ).trim();
-
-    const district = String(
-      formData.get("district") ?? ""
-    ).trim();
-
-    const area = String(
-      formData.get("area") ?? ""
-    ).trim();
-
-    const address = String(
-      formData.get("address") ?? ""
-    ).trim();
-
-    const orderNote = String(
-      formData.get("orderNote") ?? ""
-    ).trim();
-
-    const phoneRegex = /^01[3-9]\d{8}$/;
-
-    if (!phoneRegex.test(phone)) {
-      setError(
-        "সঠিক ১১ সংখ্যার বাংলাদেশি মোবাইল নম্বর দিন। যেমন: 017XXXXXXXX"
-      );
-
-      return;
-    }
-
-    const orderNumber =
-      createOrderNumber();
-
-    const order: FrontendOrder = {
-      orderNumber,
-
+    const payload = {
       customer: {
-        name,
-        phone,
-        email: email || undefined,
+        name:
+          String(
+            formData.get(
+              "name"
+            ) ?? ""
+          ).trim(),
+
+        phone:
+          String(
+            formData.get(
+              "phone"
+            ) ?? ""
+          ).trim(),
+
+        email:
+          String(
+            formData.get(
+              "email"
+            ) ?? ""
+          ).trim(),
       },
 
       shippingAddress: {
-        division,
-        district,
-        area,
-        address,
+        division:
+          String(
+            formData.get(
+              "division"
+            ) ?? ""
+          ).trim(),
+
+        district:
+          String(
+            formData.get(
+              "district"
+            ) ?? ""
+          ).trim(),
+
+        area:
+          String(
+            formData.get(
+              "area"
+            ) ?? ""
+          ).trim(),
+
+        address:
+          String(
+            formData.get(
+              "address"
+            ) ?? ""
+          ).trim(),
       },
 
-      items: [...items],
-
-      subtotal,
-      deliveryCharge,
-      total,
-
-      paymentMethod,
-
       orderNote:
-        orderNote || undefined,
+        String(
+          formData.get(
+            "orderNote"
+          ) ?? ""
+        ).trim(),
 
-      status: "pending",
+      /*
+        Price পাঠানো হচ্ছে না।
+        Server আবার final price
+        calculate করবে।
+      */
+      items:
+        latest.items.map(
+          (item) => ({
+            productId:
+              item.productId,
 
-      createdAt:
-        new Date().toISOString(),
+            quantity:
+              item.quantity,
+          })
+        ),
     };
 
-    setLastOrder(order);
+    try {
+      setSubmitting(true);
 
-    clearCart();
+      const response =
+        await fetch(
+          "/api/orders",
+          {
+            method: "POST",
 
-    router.push(
-      `/order-success?order=${orderNumber}`
-    );
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(
+                payload
+              ),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Order করা যায়নি।"
+        );
+      }
+
+      clearCart();
+
+      router.push(
+        `/order-success?order=${encodeURIComponent(
+          data.order
+            .orderNumber
+        )}`
+      );
+
+      router.refresh();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Order করার সময় সমস্যা হয়েছে।"
+      );
+
+      await validateCart(
+        false
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  if (items.length === 0) {
+  if (
+    items.length === 0
+  ) {
     return (
-      <div className="rounded-[28px] border border-gray-100 bg-white px-6 py-16 text-center shadow-sm">
-        <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-green-50">
-          <ShoppingBag
-            size={40}
-            className="text-[#14532D]"
-          />
-        </div>
+      <div className="rounded-[28px] border border-gray-100 bg-white p-10 text-center shadow-sm">
+        <ShoppingBag
+          size={45}
+          className="mx-auto text-[#14532D]"
+        />
 
-        <h2 className="mt-6 text-2xl font-bold text-gray-900">
-          Checkout করার মতো কোনো Product নেই
-        </h2>
-
-        <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-gray-500">
-          প্রথমে আপনার প্রয়োজনীয় Product Cart-এ যোগ করুন।
-        </p>
+        <h1 className="mt-5 text-2xl font-bold text-gray-900">
+          আপনার Cart খালি
+        </h1>
 
         <Link
           href="/products"
-          className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#14532D] px-6 py-3.5 font-semibold text-white"
+          className="mt-6 inline-flex rounded-xl bg-[#14532D] px-6 py-3 font-semibold text-white"
         >
-          প্রোডাক্ট দেখুন
+          Product দেখুন
         </Link>
       </div>
     );
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="grid items-start gap-8 lg:grid-cols-[1fr_390px]"
-    >
-      {/* =====================
-          Customer Information
-      ====================== */}
-      <div className="space-y-6">
-        
-        {/* Contact */}
-        <section className="rounded-[28px] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-          <div>
-            <p className="font-english text-xs font-semibold uppercase tracking-[0.12em] text-[#15803D]">
-              Step 01
-            </p>
+    <div className="grid gap-8 lg:grid-cols-[1fr_390px]">
+      <form
+        onSubmit={
+          handleSubmit
+        }
+        className="space-y-6"
+      >
+        {/* Customer */}
+        <section className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-bold text-gray-900">
+            Customer Information
+          </h2>
 
-            <h2 className="mt-2 text-2xl font-bold text-gray-900">
-              Customer Information
-            </h2>
-
-            <p className="mt-2 text-sm leading-7 text-gray-500">
-              Order Confirmation এবং Delivery-এর জন্য প্রয়োজনীয় তথ্য দিন।
-            </p>
-          </div>
-
-          <div className="mt-7 grid gap-5 sm:grid-cols-2">
-            
-            {/* Name */}
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
             <div>
-              <label
-                htmlFor="name"
-                className="mb-2 block text-sm font-semibold text-gray-700"
-              >
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
                 পূর্ণ নাম *
               </label>
 
               <input
-                id="name"
                 name="name"
-                type="text"
                 required
-                placeholder="আপনার পূর্ণ নাম"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition placeholder:text-gray-400 focus:border-[#14532D]"
+                minLength={2}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
               />
             </div>
 
-            {/* Phone */}
             <div>
-              <label
-                htmlFor="phone"
-                className="mb-2 block text-sm font-semibold text-gray-700"
-              >
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
                 মোবাইল নম্বর *
               </label>
 
               <input
-                id="phone"
                 name="phone"
                 type="tel"
-                inputMode="numeric"
                 required
                 maxLength={11}
+                inputMode="numeric"
                 placeholder="01XXXXXXXXX"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition placeholder:text-gray-400 focus:border-[#14532D]"
+                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
               />
             </div>
 
-            {/* Email */}
             <div className="sm:col-span-2">
-              <label
-                htmlFor="email"
-                className="mb-2 block text-sm font-semibold text-gray-700"
-              >
-                Email{" "}
-                <span className="font-normal text-gray-400">
-                  (Optional)
-                </span>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Email (Optional)
               </label>
 
               <input
-                id="email"
                 name="email"
                 type="email"
-                placeholder="example@email.com"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition placeholder:text-gray-400 focus:border-[#14532D]"
+                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
               />
             </div>
           </div>
         </section>
 
-        {/* Shipping */}
-        <section className="rounded-[28px] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-          <div>
-            <p className="font-english text-xs font-semibold uppercase tracking-[0.12em] text-[#15803D]">
-              Step 02
-            </p>
+        {/* Address */}
+        <section className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <MapPin
+              size={21}
+              className="text-[#14532D]"
+            />
 
-            <h2 className="mt-2 text-2xl font-bold text-gray-900">
+            <h2 className="text-xl font-bold text-gray-900">
               Delivery Address
             </h2>
           </div>
 
-          <div className="mt-7 grid gap-5 sm:grid-cols-2">
-            
-            {/* Division */}
-            <div>
-              <label
-                htmlFor="division"
-                className="mb-2 block text-sm font-semibold text-gray-700"
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+            <select
+              name="division"
+              required
+              defaultValue=""
+              className="rounded-xl border border-gray-200 bg-white px-4 py-3"
+            >
+              <option
+                value=""
+                disabled
               >
-                বিভাগ *
-              </label>
+                বিভাগ নির্বাচন করুন
+              </option>
 
-              <select
-                id="division"
-                name="division"
-                required
-                defaultValue=""
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-[#14532D]"
-              >
-                <option
-                  value=""
-                  disabled
-                >
-                  বিভাগ নির্বাচন করুন
-                </option>
+              {divisions.map(
+                (division) => (
+                  <option
+                    key={
+                      division
+                    }
+                    value={
+                      division
+                    }
+                  >
+                    {division}
+                  </option>
+                )
+              )}
+            </select>
 
-                <option value="Dhaka">
-                  ঢাকা
-                </option>
+            <input
+              name="district"
+              required
+              placeholder="জেলা"
+              className="rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-                <option value="Chattogram">
-                  চট্টগ্রাম
-                </option>
+            <input
+              name="area"
+              required
+              placeholder="এলাকা / থানা"
+              className="rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-                <option value="Rajshahi">
-                  রাজশাহী
-                </option>
+            <textarea
+              name="address"
+              required
+              minLength={5}
+              rows={3}
+              placeholder="বিস্তারিত ঠিকানা"
+              className="resize-none rounded-xl border border-gray-200 px-4 py-3 sm:col-span-2"
+            />
 
-                <option value="Khulna">
-                  খুলনা
-                </option>
-
-                <option value="Barishal">
-                  বরিশাল
-                </option>
-
-                <option value="Sylhet">
-                  সিলেট
-                </option>
-
-                <option value="Rangpur">
-                  রংপুর
-                </option>
-
-                <option value="Mymensingh">
-                  ময়মনসিংহ
-                </option>
-              </select>
-            </div>
-
-            {/* District */}
-            <div>
-              <label
-                htmlFor="district"
-                className="mb-2 block text-sm font-semibold text-gray-700"
-              >
-                জেলা *
-              </label>
-
-              <input
-                id="district"
-                name="district"
-                type="text"
-                required
-                placeholder="যেমন: ঢাকা"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition placeholder:text-gray-400 focus:border-[#14532D]"
-              />
-            </div>
-
-            {/* Area */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="area"
-                className="mb-2 block text-sm font-semibold text-gray-700"
-              >
-                এলাকা / থানা *
-              </label>
-
-              <input
-                id="area"
-                name="area"
-                type="text"
-                required
-                placeholder="যেমন: উত্তরা, সেক্টর ৭"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none transition placeholder:text-gray-400 focus:border-[#14532D]"
-              />
-            </div>
-
-            {/* Full Address */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="address"
-                className="mb-2 block text-sm font-semibold text-gray-700"
-              >
-                সম্পূর্ণ ঠিকানা *
-              </label>
-
-              <textarea
-                id="address"
-                name="address"
-                required
-                rows={3}
-                placeholder="বাসা/রোড/এলাকা সহ সম্পূর্ণ ঠিকানা লিখুন"
-                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none transition placeholder:text-gray-400 focus:border-[#14532D]"
-              />
-            </div>
-
-            {/* Order Note */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="orderNote"
-                className="mb-2 block text-sm font-semibold text-gray-700"
-              >
-                Order Note{" "}
-                <span className="font-normal text-gray-400">
-                  (Optional)
-                </span>
-              </label>
-
-              <textarea
-                id="orderNote"
-                name="orderNote"
-                rows={3}
-                placeholder="Delivery বা Order সম্পর্কে বিশেষ কোনো নির্দেশনা থাকলে লিখুন"
-                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none transition placeholder:text-gray-400 focus:border-[#14532D]"
-              />
-            </div>
+            <textarea
+              name="orderNote"
+              maxLength={500}
+              rows={3}
+              placeholder="Order Note (Optional)"
+              className="resize-none rounded-xl border border-gray-200 px-4 py-3 sm:col-span-2"
+            />
           </div>
         </section>
 
-        {/* Payment */}
-        <section className="rounded-[28px] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-          <p className="font-english text-xs font-semibold uppercase tracking-[0.12em] text-[#15803D]">
-            Step 03
-          </p>
+        {/* COD */}
+        <section className="rounded-[26px] border border-green-200 bg-green-50 p-6">
+          <div className="flex items-start gap-4">
+            <Banknote
+              size={25}
+              className="text-[#14532D]"
+            />
 
-          <h2 className="mt-2 text-2xl font-bold text-gray-900">
-            Payment Method
-          </h2>
+            <div>
+              <h2 className="font-bold">
+                Cash on Delivery
+              </h2>
 
-          <div className="mt-6 grid gap-3">
-            
-            {/* COD */}
-            <label
-              className={`cursor-pointer rounded-2xl border p-5 transition ${
-                paymentMethod === "cod"
-                  ? "border-[#14532D] bg-green-50"
-                  : "border-gray-200 bg-white"
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="cod"
-                  checked={
-                    paymentMethod === "cod"
-                  }
-                  onChange={() =>
-                    setPaymentMethod("cod")
-                  }
-                  className="h-4 w-4 accent-[#14532D]"
-                />
+              <p className="mt-1 text-sm text-gray-600">
+                Product Delivery পাওয়ার সময় Payment করবেন।
+              </p>
+            </div>
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#14532D] shadow-sm">
-                  <Banknote size={22} />
-                </div>
-
-                <div>
-                  <p className="font-semibold text-gray-900">
-                    Cash on Delivery
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-500">
-                    Product হাতে পাওয়ার পর Payment করুন
-                  </p>
-                </div>
-              </div>
-            </label>
-
-            {/* Online */}
-            <label
-              className={`cursor-pointer rounded-2xl border p-5 transition ${
-                paymentMethod === "online"
-                  ? "border-[#14532D] bg-green-50"
-                  : "border-gray-200 bg-white"
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="online"
-                  checked={
-                    paymentMethod === "online"
-                  }
-                  onChange={() =>
-                    setPaymentMethod("online")
-                  }
-                  className="h-4 w-4 accent-[#14532D]"
-                />
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#14532D] shadow-sm">
-                  <CreditCard size={22} />
-                </div>
-
-                <div>
-                  <p className="font-semibold text-gray-900">
-                    Online Payment
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-500">
-                    Backend Phase-এ bKash / Card Payment যুক্ত হবে
-                  </p>
-                </div>
-              </div>
-            </label>
+            <CheckCircle2
+              size={20}
+              className="ml-auto text-green-600"
+            />
           </div>
         </section>
 
-        {/* Error */}
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm leading-7 text-red-600">
-            {error}
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-7 text-red-600">
+            <AlertTriangle
+              size={19}
+              className="mt-1 shrink-0"
+            />
+
+            <span>
+              {error}
+            </span>
           </div>
         )}
-      </div>
 
-      {/* =====================
-          Order Summary
-      ====================== */}
-      <aside className="sticky top-32 rounded-[28px] border border-green-100 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900">
-          আপনার Order
-        </h2>
-
-        <p className="mt-1 text-sm text-gray-400">
-          মোট {totalQuantity} টি Item
-        </p>
-
-        {/* Products */}
-        <div className="mt-6 max-h-[300px] space-y-4 overflow-y-auto pr-1">
-          {items.map((item) => {
-            const price =
-              item.salePrice ??
-              item.regularPrice;
-
-            return (
-              <div
-                key={item.id}
-                className="flex gap-3"
-              >
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#EEF8F0]">
-                  <PackageOpen
-                    size={24}
-                    className="text-[#14532D]"
-                  />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-gray-800">
-                    {item.name}
-                  </p>
-
-                  <p className="font-english mt-1 text-xs text-gray-400">
-                    {item.quantity} × ৳{price}
-                  </p>
-                </div>
-
-                <p className="text-sm font-bold text-gray-800">
-                  ৳{price * item.quantity}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="my-6 h-px bg-gray-100" />
-
-        {/* Costs */}
-        <div className="space-y-4 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-500">
-              Subtotal
-            </span>
-
-            <span className="font-semibold text-gray-900">
-              ৳{subtotal}
-            </span>
-          </div>
-
-          <div className="flex justify-between">
-            <span className="flex items-center gap-1.5 text-gray-500">
-              <Truck size={15} />
-              Delivery
-            </span>
-
-            <span className="font-semibold text-gray-900">
-              ৳{deliveryCharge}
-            </span>
-          </div>
-
-          <div className="h-px bg-gray-100" />
-
-          <div className="flex items-end justify-between">
-            <span className="font-semibold text-gray-700">
-              সর্বমোট
-            </span>
-
-            <span className="text-3xl font-bold text-[#14532D]">
-              ৳{total}
-            </span>
-          </div>
-        </div>
-
-        {/* Place Order */}
         <button
           type="submit"
-          className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532D] px-6 py-4 font-semibold text-white transition hover:bg-[#166534]"
+          disabled={
+            submitting ||
+            syncing ||
+            !validation?.valid
+          }
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532D] px-6 py-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <LockKeyhole size={18} />
+          {submitting ? (
+            <Loader2
+              size={19}
+              className="animate-spin"
+            />
+          ) : (
+            <Package
+              size={19}
+            />
+          )}
 
-          Order Confirm করুন
+          {submitting
+            ? "Order Processing..."
+            : "Order Confirm করুন"}
         </button>
+      </form>
 
-        {/* Security */}
-        <div className="mt-5 flex items-start gap-2 rounded-xl bg-green-50 px-4 py-3">
-          <ShieldCheck
-            size={18}
-            className="mt-0.5 shrink-0 text-[#15803D]"
-          />
+      {/* SUMMARY */}
+      <aside>
+        <div className="sticky top-24 rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-bold">
+              Order Summary
+            </h2>
 
-          <p className="text-xs leading-6 text-gray-500">
-            আপনার Order Information শুধুমাত্র Order এবং Delivery পরিচালনার
-            জন্য ব্যবহার করা হবে।
-          </p>
-        </div>
+            <button
+              type="button"
+              onClick={() =>
+                validateCart(
+                  true
+                )
+              }
+              disabled={
+                syncing
+              }
+              className="rounded-lg p-2 text-[#14532D] hover:bg-green-50 disabled:opacity-50"
+              title="Latest Price & Stock Check"
+            >
+              <RefreshCw
+                size={18}
+                className={
+                  syncing
+                    ? "animate-spin"
+                    : ""
+                }
+              />
+            </button>
+          </div>
 
-        <Link
-          href="/cart"
-          className="mt-5 flex items-center justify-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-[#14532D]"
-        >
-          <ArrowLeft size={16} />
+          {syncing &&
+            !validation && (
+              <div className="mt-5 flex items-center gap-2 text-sm text-gray-400">
+                <Loader2
+                  size={17}
+                  className="animate-spin"
+                />
 
-          Cart-এ ফিরে যান
-        </Link>
+                Latest Price & Stock Checking...
+              </div>
+            )}
 
-        <div className="mt-5 flex items-center justify-center gap-2 text-xs text-[#15803D]">
-          <CheckCircle2 size={15} />
+          {validation && (
+            <>
+              <div className="mt-5 space-y-4">
+                {validation.items.map(
+                  (item) => (
+                    <div
+                      key={
+                        item.productId
+                      }
+                      className="flex justify-between gap-4 border-b border-gray-100 pb-4"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">
+                          {
+                            item.name
+                          }
+                        </p>
 
-          Secure Checkout
+                        <p className="font-english mt-1 text-xs text-gray-400">
+                          Qty:{" "}
+                          {
+                            item.quantity
+                          }{" "}
+                          • Stock:{" "}
+                          {
+                            item.stock
+                          }
+                        </p>
+
+                        <p className="mt-1 text-xs text-[#15803D]">
+                          ৳
+                          {
+                            item.unitPrice
+                          }{" "}
+                          / item
+                        </p>
+                      </div>
+
+                      <p className="font-semibold">
+                        ৳
+                        {
+                          item.lineTotal
+                        }
+                      </p>
+                    </div>
+                  )
+                )}
+              </div>
+
+              <div className="mt-5 space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">
+                    Subtotal
+                  </span>
+
+                  <span>
+                    ৳
+                    {
+                      validation.subtotal
+                    }
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="flex items-center gap-2 text-gray-500">
+                    <Truck
+                      size={15}
+                    />
+
+                    Delivery
+                  </span>
+
+                  <span>
+                    ৳
+                    {
+                      validation.deliveryCharge
+                    }
+                  </span>
+                </div>
+
+                <div className="flex justify-between border-t border-gray-100 pt-4 text-lg font-bold">
+                  <span>
+                    Total
+                  </span>
+
+                  <span className="text-[#14532D]">
+                    ৳
+                    {
+                      validation.total
+                    }
+                  </span>
+                </div>
+              </div>
+
+              <div
+                className={`mt-5 rounded-xl p-3 text-xs leading-6 ${
+                  validation.valid
+                    ? "bg-green-50 text-green-700"
+                    : "bg-amber-50 text-amber-800"
+                }`}
+              >
+                {validation.valid
+                  ? "Price এবং Stock MongoDB থেকে Check করা হয়েছে।"
+                  : "Cart-এর কিছু Product পরিবর্তন হয়েছে। উপরের Message দেখে Cart ঠিক করুন।"}
+              </div>
+            </>
+          )}
         </div>
       </aside>
-    </form>
+    </div>
   );
 }

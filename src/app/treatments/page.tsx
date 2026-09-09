@@ -1,49 +1,57 @@
 import PublicLayout from "@/components/layout/PublicLayout";
-import TreatmentCard from "@/components/treatment/TreatmentCard";
-import PageHero from "@/components/ui/PageHero";
 
-import { treatments } from "@/data/treatments";
+import DatabaseTreatmentCard from "@/components/treatment/DatabaseTreatmentCard";
 
-export default function TreatmentsPage() {
+import {
+  getPublicTreatments,
+} from "@/lib/db/treatments";
+
+export const dynamic =
+  "force-dynamic";
+
+export default async function TreatmentsPage() {
+  const treatments =
+    await getPublicTreatments();
+
   return (
     <PublicLayout>
-      <PageHero
-        badge="চিকিৎসা ও পরামর্শ"
-        title="আপনার প্রয়োজন অনুযায়ী Consultation Service নির্বাচন করুন"
-        description="প্রতিটি সেবা সম্পর্কে প্রয়োজনীয় তথ্য দেখে আপনার জন্য উপযুক্ত Consultation নির্বাচন করুন এবং সহজেই Appointment বুক করুন।"
-        currentPage="চিকিৎসা"
-      />
-
-      <section className="bg-[#F7FBF8] py-14 sm:py-16 lg:py-20">
+      <section className="bg-[#F7FBF8] py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          
-          {/* Info */}
-          <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <p className="text-sm font-medium text-[#15803D]">
-                Available Services
-              </p>
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-sm font-semibold text-[#15803D]">
+              Treatments
+            </p>
 
-              <h2 className="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl">
-                বর্তমানে {treatments.length}টি Consultation Service রয়েছে
-              </h2>
-            </div>
+            <h1 className="mt-2 text-3xl font-bold text-gray-900 sm:text-4xl">
+              Consultation Services
+            </h1>
 
-            <p className="max-w-md text-sm leading-7 text-gray-500">
-              Consultation Fee এবং সময় এখন Demo হিসেবে রাখা হয়েছে। পরে
-              ডাক্তারের প্রকৃত তথ্য অনুযায়ী পরিবর্তন করা যাবে।
+            <p className="mt-4 leading-8 text-gray-500">
+              উপলব্ধ Consultation Service, Fee এবং Duration দেখুন।
             </p>
           </div>
 
-          {/* Grid */}
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {treatments.map((treatment) => (
-              <TreatmentCard
-                key={treatment.id}
-                treatment={treatment}
-              />
-            ))}
-          </div>
+          {treatments.length >
+          0 ? (
+            <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {treatments.map(
+                (treatment) => (
+                  <DatabaseTreatmentCard
+                    key={
+                      treatment.databaseId
+                    }
+                    treatment={
+                      treatment
+                    }
+                  />
+                )
+              )}
+            </div>
+          ) : (
+            <div className="mt-10 rounded-[24px] border border-dashed border-gray-200 bg-white py-16 text-center text-gray-400">
+              বর্তমানে কোনো Treatment প্রকাশ করা হয়নি।
+            </div>
+          )}
         </div>
       </section>
     </PublicLayout>

@@ -2,79 +2,125 @@
 
 import {
   FormEvent,
+  useCallback,
   useEffect,
   useState,
 } from "react";
 
 import {
+  Bell,
   CheckCircle2,
-  Clock3,
-  Mail,
-  MapPin,
-  Phone,
-  RotateCcw,
+  Loader2,
   Save,
-  Settings,
-  ShoppingBag,
+  Settings2,
   Stethoscope,
+  Store,
 } from "lucide-react";
 
-import {
-  useAdminSettingsStore,
-  type SiteSettings,
-} from "@/stores/admin-settings-store";
+import type {
+  WebsiteSettings,
+} from "@/types/website-settings";
+
+const emptySettings: WebsiteSettings =
+  {
+    clinicName: "",
+
+    englishName: "",
+
+    doctorName: "",
+
+    phone: "",
+
+    whatsapp: "",
+
+    email: "",
+
+    address: "",
+
+    chamberTime: "",
+
+    deliveryCharge: 80,
+
+    announcement: "",
+
+    announcementEnabled:
+      false,
+
+    appointmentEnabled:
+      true,
+
+    shopEnabled: true,
+  };
 
 export default function AdminSettingsManager() {
-  const settings =
-    useAdminSettingsStore(
-      (state) =>
-        state.settings
-    );
+  const [
+    settings,
+    setSettings,
+  ] = useState<WebsiteSettings>(
+    emptySettings
+  );
 
-  const updateSettings =
-    useAdminSettingsStore(
-      (state) =>
-        state.updateSettings
-    );
+  const [loading, setLoading] =
+    useState(true);
 
-  const resetSettings =
-    useAdminSettingsStore(
-      (state) =>
-        state.resetSettings
-    );
-
-  const [mounted, setMounted] =
+  const [saving, setSaving] =
     useState(false);
 
-  const [form, setForm] =
-    useState<SiteSettings>(
-      settings
-    );
+  const [error, setError] =
+    useState("");
 
   const [success, setSuccess] =
     useState("");
 
+  const loadSettings =
+    useCallback(async () => {
+      try {
+        setLoading(true);
+
+        const response =
+          await fetch(
+            "/api/settings",
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
+
+        setSettings(
+          data.settings
+        );
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Settings load করা যায়নি।"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }, []);
+
   useEffect(() => {
-    setMounted(true);
+    loadSettings();
+  }, [loadSettings]);
 
-    setForm(settings);
-  }, [settings]);
+  const updateField = (
+    field:
+      keyof WebsiteSettings,
 
-  if (!mounted) {
-    return (
-      <div className="py-20 text-center text-sm text-gray-400">
-        Settings Loading...
-      </div>
-    );
-  }
-
-  const updateField = <
-    K extends keyof SiteSettings
-  >(
-    field: K,
-    value: SiteSettings[K]
+    value:
+      string | number | boolean
   ) => {
-    setForm(
+    setSettings(
       (current) => ({
         ...current,
 
@@ -83,54 +129,87 @@ export default function AdminSettingsManager() {
     );
   };
 
-  const handleSubmit = (
-    event: FormEvent<HTMLFormElement>
+  const handleSubmit = async (
+    event:
+      FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
-    updateSettings(form);
+    try {
+      setSaving(true);
 
-    setSuccess(
-      "Settings সফলভাবে Save হয়েছে।"
-    );
+      setError("");
 
-    window.setTimeout(() => {
       setSuccess("");
-    }, 2000);
-  };
 
-  const handleReset = () => {
-    const confirmed =
-      window.confirm(
-        "সব Settings Default অবস্থায় Reset করতে চান?"
+      const response =
+        await fetch(
+          "/api/settings",
+          {
+            method: "PATCH",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(
+                settings
+              ),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message
+        );
+      }
+
+      setSuccess(
+        "Website Settings সফলভাবে Save হয়েছে।"
       );
 
-    if (!confirmed) {
-      return;
+      await loadSettings();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Settings Save করা যায়নি।"
+      );
+    } finally {
+      setSaving(false);
     }
-
-    resetSettings();
-
-    setSuccess(
-      "Settings Reset হয়েছে।"
-    );
   };
+
+  if (loading) {
+    return (
+      <div className="py-20">
+        <Loader2
+          size={30}
+          className="mx-auto animate-spin text-[#14532D]"
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
-      {/* Header */}
       <div>
         <p className="text-sm font-semibold text-[#15803D]">
-          Configuration
+          Website Control
         </p>
 
         <h1 className="mt-1 text-3xl font-bold text-gray-900">
           Website Settings
         </h1>
 
-        <p className="mt-2 text-sm leading-7 text-gray-500">
-          Clinic, Contact এবং Website-এর সাধারণ Settings এখানে Manage করা
-          হবে।
+        <p className="mt-2 text-sm text-gray-500">
+          Clinic Information, Delivery Charge এবং Website Features এখান থেকে
+          নিয়ন্ত্রণ করুন।
         </p>
       </div>
 
@@ -138,329 +217,298 @@ export default function AdminSettingsManager() {
         onSubmit={handleSubmit}
         className="mt-7 space-y-6"
       >
-        {/* Brand */}
+        {/* General */}
         <section className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-[#14532D]">
-              <Settings size={21} />
-            </div>
+          <div className="flex items-center gap-2">
+            <Settings2
+              size={21}
+              className="text-[#14532D]"
+            />
 
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Brand Information
-              </h2>
-
-              <p className="mt-1 text-xs text-gray-400">
-                Website-এর মূল পরিচিতি
-              </p>
-            </div>
+            <h2 className="text-xl font-bold">
+              General Information
+            </h2>
           </div>
 
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Clinic Name
-              </label>
+            <input
+              required
+              value={
+                settings.clinicName
+              }
+              onChange={(e) =>
+                updateField(
+                  "clinicName",
+                  e.target.value
+                )
+              }
+              placeholder="Clinic Name"
+              className="rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-              <input
-                value={
-                  form.clinicName
-                }
-                onChange={(event) =>
-                  updateField(
-                    "clinicName",
-                    event.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
+            <input
+              value={
+                settings.englishName
+              }
+              onChange={(e) =>
+                updateField(
+                  "englishName",
+                  e.target.value
+                )
+              }
+              placeholder="English Name"
+              className="font-english rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                English Name
-              </label>
+            <input
+              value={
+                settings.doctorName
+              }
+              onChange={(e) =>
+                updateField(
+                  "doctorName",
+                  e.target.value
+                )
+              }
+              placeholder="Doctor Name"
+              className="rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-              <input
-                value={
-                  form.englishName
-                }
-                onChange={(event) =>
-                  updateField(
-                    "englishName",
-                    event.target.value
-                  )
-                }
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
+            <input
+              value={
+                settings.phone
+              }
+              onChange={(e) =>
+                updateField(
+                  "phone",
+                  e.target.value
+                )
+              }
+              placeholder="Phone"
+              className="font-english rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-            <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Doctor Name
-              </label>
+            <input
+              value={
+                settings.whatsapp
+              }
+              onChange={(e) =>
+                updateField(
+                  "whatsapp",
+                  e.target.value
+                )
+              }
+              placeholder="WhatsApp"
+              className="font-english rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-              <input
-                value={
-                  form.doctorName
-                }
-                onChange={(event) =>
-                  updateField(
-                    "doctorName",
-                    event.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
+            <input
+              type="email"
+              value={
+                settings.email
+              }
+              onChange={(e) =>
+                updateField(
+                  "email",
+                  e.target.value
+                )
+              }
+              placeholder="Email"
+              className="font-english rounded-xl border border-gray-200 px-4 py-3"
+            />
 
-            <div className="sm:col-span-2">
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Top Announcement
-              </label>
+            <input
+              value={
+                settings.chamberTime
+              }
+              onChange={(e) =>
+                updateField(
+                  "chamberTime",
+                  e.target.value
+                )
+              }
+              placeholder="Chamber Time"
+              className="rounded-xl border border-gray-200 px-4 py-3 sm:col-span-2"
+            />
 
-              <input
-                value={
-                  form.announcement
-                }
-                onChange={(event) =>
-                  updateField(
-                    "announcement",
-                    event.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
+            <textarea
+              rows={4}
+              value={
+                settings.address
+              }
+              onChange={(e) =>
+                updateField(
+                  "address",
+                  e.target.value
+                )
+              }
+              placeholder="Clinic Address"
+              className="resize-none rounded-xl border border-gray-200 px-4 py-3 sm:col-span-2"
+            />
           </div>
         </section>
 
-        {/* Contact */}
+        {/* Shop */}
         <section className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900">
-            Contact Information
-          </h2>
+          <div className="flex items-center gap-2">
+            <Store
+              size={21}
+              className="text-[#14532D]"
+            />
 
-          <div className="mt-6 grid gap-5 sm:grid-cols-2">
-            
-            {/* Phone */}
-            <div>
-              <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <Phone size={15} />
-
-                Phone
-              </label>
-
-              <input
-                value={form.phone}
-                onChange={(event) =>
-                  updateField(
-                    "phone",
-                    event.target.value
-                  )
-                }
-                placeholder="01XXXXXXXXX"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
-
-            {/* WhatsApp */}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                WhatsApp
-              </label>
-
-              <input
-                value={
-                  form.whatsapp
-                }
-                onChange={(event) =>
-                  updateField(
-                    "whatsapp",
-                    event.target.value
-                  )
-                }
-                placeholder="01XXXXXXXXX"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
-
-            {/* Email */}
-            <div className="sm:col-span-2">
-              <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <Mail size={15} />
-
-                Email
-              </label>
-
-              <input
-                type="email"
-                value={form.email}
-                onChange={(event) =>
-                  updateField(
-                    "email",
-                    event.target.value
-                  )
-                }
-                placeholder="example@email.com"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
-
-            {/* Address */}
-            <div className="sm:col-span-2">
-              <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <MapPin size={15} />
-
-                Chamber Address
-              </label>
-
-              <textarea
-                rows={3}
-                value={
-                  form.address
-                }
-                onChange={(event) =>
-                  updateField(
-                    "address",
-                    event.target.value
-                  )
-                }
-                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
-
-            {/* Time */}
-            <div className="sm:col-span-2">
-              <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <Clock3 size={15} />
-
-                Chamber Time
-              </label>
-
-              <input
-                value={
-                  form.chamberTime
-                }
-                onChange={(event) =>
-                  updateField(
-                    "chamberTime",
-                    event.target.value
-                  )
-                }
-                placeholder="শনিবার–বৃহস্পতিবার, বিকাল ৪টা–রাত ৮টা"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
-              />
-            </div>
+            <h2 className="text-xl font-bold">
+              Shop Settings
+            </h2>
           </div>
-        </section>
-
-        {/* Commerce */}
-        <section className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900">
-            Service Settings
-          </h2>
 
           <div className="mt-6">
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
-              Default Delivery Charge
+            <label className="text-sm font-semibold">
+              Delivery Charge
             </label>
 
             <input
               type="number"
               min="0"
               value={
-                form.deliveryCharge
+                settings.deliveryCharge
               }
-              onChange={(event) =>
+              onChange={(e) =>
                 updateField(
                   "deliveryCharge",
                   Number(
-                    event.target
-                      .value
+                    e.target.value
                   )
                 )
               }
-              className="font-english w-full max-w-sm rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
+              className="font-english mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 sm:max-w-xs"
             />
           </div>
 
-          {/* Switches */}
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            
-            <button
-              type="button"
-              onClick={() =>
-                updateField(
-                  "appointmentEnabled",
-                  !form.appointmentEnabled
-                )
-              }
-              className={`rounded-2xl border p-5 text-left transition ${
-                form.appointmentEnabled
-                  ? "border-green-200 bg-green-50"
-                  : "border-gray-200 bg-gray-50"
-              }`}
-            >
-              <Stethoscope
-                size={21}
-                className={
-                  form.appointmentEnabled
-                    ? "text-[#14532D]"
-                    : "text-gray-400"
-                }
-              />
-
-              <p className="mt-3 font-semibold text-gray-900">
-                Appointment System
+          <label className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-[#F7FBF8] p-4">
+            <div>
+              <p className="font-semibold">
+                Product Ordering
               </p>
 
               <p className="mt-1 text-xs text-gray-500">
-                {form.appointmentEnabled
-                  ? "Enabled"
-                  : "Disabled"}
+                বন্ধ করলে নতুন Order নেওয়া হবে না।
               </p>
-            </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={() =>
+            <input
+              type="checkbox"
+              checked={
+                settings.shopEnabled
+              }
+              onChange={(e) =>
                 updateField(
                   "shopEnabled",
-                  !form.shopEnabled
+                  e.target.checked
                 )
               }
-              className={`rounded-2xl border p-5 text-left transition ${
-                form.shopEnabled
-                  ? "border-green-200 bg-green-50"
-                  : "border-gray-200 bg-gray-50"
-              }`}
-            >
-              <ShoppingBag
-                size={21}
-                className={
-                  form.shopEnabled
-                    ? "text-[#14532D]"
-                    : "text-gray-400"
-                }
-              />
+              className="h-5 w-5"
+            />
+          </label>
+        </section>
 
-              <p className="mt-3 font-semibold text-gray-900">
-                Product Shop
+        {/* Appointment */}
+        <section className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Stethoscope
+              size={21}
+              className="text-[#14532D]"
+            />
+
+            <h2 className="text-xl font-bold">
+              Appointment
+            </h2>
+          </div>
+
+          <label className="mt-5 flex items-center justify-between gap-4 rounded-xl bg-[#F7FBF8] p-4">
+            <div>
+              <p className="font-semibold">
+                Appointment Booking
               </p>
 
               <p className="mt-1 text-xs text-gray-500">
-                {form.shopEnabled
-                  ? "Enabled"
-                  : "Disabled"}
+                বন্ধ করলে নতুন Appointment নেওয়া হবে না।
               </p>
-            </button>
-          </div>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={
+                settings.appointmentEnabled
+              }
+              onChange={(e) =>
+                updateField(
+                  "appointmentEnabled",
+                  e.target.checked
+                )
+              }
+              className="h-5 w-5"
+            />
+          </label>
         </section>
 
-        {/* Message */}
+        {/* Announcement */}
+        <section className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Bell
+              size={21}
+              className="text-[#14532D]"
+            />
+
+            <h2 className="text-xl font-bold">
+              Announcement
+            </h2>
+          </div>
+
+          <textarea
+            rows={3}
+            maxLength={300}
+            value={
+              settings.announcement
+            }
+            onChange={(e) =>
+              updateField(
+                "announcement",
+                e.target.value
+              )
+            }
+            placeholder="যেমন: আগামী শুক্রবার Chamber বন্ধ থাকবে।"
+            className="mt-5 w-full resize-none rounded-xl border border-gray-200 px-4 py-3"
+          />
+
+          <label className="mt-4 flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={
+                settings.announcementEnabled
+              }
+              onChange={(e) =>
+                updateField(
+                  "announcementEnabled",
+                  e.target.checked
+                )
+              }
+              className="h-5 w-5"
+            />
+
+            <span className="text-sm font-semibold">
+              Announcement Public Website-এ দেখান
+            </span>
+          </label>
+        </section>
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
         {success && (
-          <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-[#166534]">
+          <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
             <CheckCircle2
               size={18}
             />
@@ -469,36 +517,25 @@ export default function AdminSettingsManager() {
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="submit"
-            className="flex items-center gap-2 rounded-xl bg-[#14532D] px-6 py-3 font-semibold text-white"
-          >
-            <Save size={18} />
-
-            Settings Save
-          </button>
-
-          <button
-            type="button"
-            onClick={handleReset}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 font-semibold text-gray-600"
-          >
-            <RotateCcw
-              size={17}
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex items-center gap-2 rounded-xl bg-[#14532D] px-6 py-3.5 font-semibold text-white disabled:opacity-60"
+        >
+          {saving ? (
+            <Loader2
+              size={18}
+              className="animate-spin"
             />
+          ) : (
+            <Save
+              size={18}
+            />
+          )}
 
-            Reset
-          </button>
-        </div>
+          Save Settings
+        </button>
       </form>
-
-      <div className="mt-6 rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm leading-7 text-amber-900">
-        Settings এখন LocalStorage-এ Save হচ্ছে। Public Header, Footer,
-        Checkout ইত্যাদির সাথে সম্পূর্ণ Global Connection Backend Phase-এ
-        Database Settings-এর মাধ্যমে করব।
-      </div>
     </div>
   );
 }

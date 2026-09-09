@@ -1,19 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
+
 import {
   CheckCircle2,
   Minus,
   PackageCheck,
-  PackageOpen,
   Plus,
-  ShieldCheck,
   ShoppingCart,
-  Truck,
 } from "lucide-react";
 
-import type { Product } from "@/data/products";
-import { useCartStore } from "@/stores/cart-store";
+import type {
+  Product,
+} from "@/data/products";
+
+import {
+  useCartStore,
+} from "@/stores/cart-store";
+
+import ProductImageGallery from "@/components/product/ProductImageGallery";
+
+import DiscountCountdown from "@/components/product/DiscountCountdown";
+
+import {
+  getEffectiveProductPrice,
+  isTimedDiscountActive,
+} from "@/lib/product-pricing";
 
 type ProductDetailsProps = {
   product: Product;
@@ -22,250 +37,352 @@ type ProductDetailsProps = {
 export default function ProductDetails({
   product,
 }: ProductDetailsProps) {
-  const [quantity, setQuantity] = useState(1);
-  const [added, setAdded] = useState(false);
-
-  const addItem = useCartStore(
-    (state) => state.addItem
-  );
-
-  const finalPrice =
-    product.salePrice ?? product.regularPrice;
-
-  const hasDiscount =
-    product.salePrice &&
-    product.salePrice < product.regularPrice;
-
-  const decreaseQuantity = () => {
-    setQuantity((current) =>
-      current > 1 ? current - 1 : 1
+  const addItem =
+    useCartStore(
+      (state) =>
+        state.addItem
     );
-  };
 
-  const increaseQuantity = () => {
-    setQuantity((current) =>
-      current < product.stock
-        ? current + 1
-        : current
+  const [
+    quantity,
+    setQuantity,
+  ] = useState(1);
+
+  const [
+    added,
+    setAdded,
+  ] = useState(false);
+
+  const [
+    now,
+    setNow,
+  ] = useState<
+    number | null
+  >(null);
+
+  useEffect(() => {
+    setNow(
+      Date.now()
     );
-  };
 
-  const handleAddToCart = () => {
-    addItem(product, quantity);
+    const timer =
+      window.setInterval(
+        () => {
+          setNow(
+            Date.now()
+          );
+        },
+        1000
+      );
 
-    setAdded(true);
+    return () => {
+      window.clearInterval(
+        timer
+      );
+    };
+  }, []);
 
-    window.setTimeout(() => {
-      setAdded(false);
-    }, 1500);
-  };
+  const currentPrice =
+    now === null
+      ? product.salePrice ??
+        product.regularPrice
+      : getEffectiveProductPrice(
+          product,
+          new Date(now)
+        );
+
+  const timedDiscountActive =
+    now === null
+      ? false
+      : isTimedDiscountActive(
+          product,
+          new Date(now)
+        );
+
+  const hasLowerPrice =
+    currentPrice <
+    product.regularPrice;
+
+  const decreaseQuantity =
+    () => {
+      setQuantity(
+        (current) =>
+          Math.max(
+            1,
+            current - 1
+          )
+      );
+    };
+
+  const increaseQuantity =
+    () => {
+      setQuantity(
+        (current) =>
+          Math.min(
+            product.stock,
+            current + 1
+          )
+      );
+    };
+
+  const handleAddToCart =
+    () => {
+      if (
+        product.stock <= 0
+      ) {
+        return;
+      }
+
+      const cartProduct: Product =
+        {
+          ...product,
+
+          salePrice:
+            currentPrice <
+            product.regularPrice
+              ? currentPrice
+              : undefined,
+        };
+
+      addItem(
+        cartProduct,
+        quantity
+      );
+
+      setAdded(true);
+
+      window.setTimeout(
+        () => {
+          setAdded(false);
+        },
+        2500
+      );
+    };
 
   return (
-    <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-14">
-      
-      {/* Left - Product Image */}
+    <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
+      {/* Gallery */}
+      <ProductImageGallery
+        images={
+          product.images ??
+          []
+        }
+        productName={
+          product.name
+        }
+      />
+
+      {/* Product Info */}
       <div>
-        <div className="relative overflow-hidden rounded-[32px] border border-green-100 bg-[#EEF8F0]">
-          <div className="flex aspect-square items-center justify-center">
-            <div className="flex h-40 w-40 items-center justify-center rounded-full bg-white shadow-lg">
-              <PackageOpen
-                size={72}
-                strokeWidth={1.3}
-                className="text-[#14532D]"
-              />
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-[#15803D]">
+            {
+              product.category
+            }
+          </span>
 
           {product.badge && (
-            <span className="absolute left-6 top-6 rounded-full bg-[#14532D] px-4 py-2 text-sm font-semibold text-white">
-              {product.badge}
+            <span className="rounded-full bg-[#14532D] px-3 py-1 text-xs font-semibold text-white">
+              {
+                product.badge
+              }
+            </span>
+          )}
+
+          {timedDiscountActive && (
+            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
+              Limited Time Offer
             </span>
           )}
         </div>
-
-        {/* Thumbnail Demo */}
-        <div className="mt-4 grid grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((item) => (
-            <button
-              type="button"
-              key={item}
-              className={`flex aspect-square items-center justify-center rounded-2xl border bg-[#F7FBF8] ${
-                item === 1
-                  ? "border-[#14532D]"
-                  : "border-gray-100"
-              }`}
-            >
-              <PackageOpen
-                size={26}
-                className="text-[#14532D]"
-              />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Right */}
-      <div>
-        <span className="inline-flex rounded-full bg-green-50 px-4 py-1.5 font-english text-xs font-semibold uppercase tracking-[0.12em] text-[#15803D]">
-          {product.category}
-        </span>
 
         <h1 className="mt-5 text-3xl font-bold leading-tight text-gray-900 sm:text-4xl">
           {product.name}
         </h1>
 
         <p className="font-english mt-2 text-sm text-gray-400">
-          {product.englishName}
+          {
+            product.englishName
+          }
         </p>
-
-        <div className="mt-5 flex flex-wrap items-center gap-4 text-sm">
-          <span className="text-gray-500">
-            SKU:{" "}
-            <strong className="font-english text-gray-700">
-              {product.sku}
-            </strong>
-          </span>
-
-          <span className="flex items-center gap-1.5 font-medium text-[#15803D]">
-            <CheckCircle2 size={17} />
-            স্টকে আছে ({product.stock})
-          </span>
-        </div>
 
         {/* Price */}
-        <div className="mt-7 flex items-end gap-3">
-          <span className="text-4xl font-bold text-[#14532D]">
-            ৳{finalPrice}
-          </span>
+        <div className="mt-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-3xl font-bold text-[#14532D]">
+              ৳
+              {currentPrice}
+            </p>
 
-          {hasDiscount && (
-            <span className="pb-1 text-lg text-gray-400 line-through">
-              ৳{product.regularPrice}
-            </span>
-          )}
+            {hasLowerPrice && (
+              <span className="text-lg text-gray-400 line-through">
+                ৳
+                {
+                  product.regularPrice
+                }
+              </span>
+            )}
+          </div>
+
+          <DiscountCountdown
+            enabled={
+              product.discountEnabled
+            }
+            startAt={
+              product.discountStartAt
+            }
+            endAt={
+              product.discountEndAt
+            }
+          />
         </div>
 
-        <p className="mt-6 text-base leading-8 text-gray-600">
-          {product.shortDescription}
+        {/* Short Description */}
+        <p className="mt-6 leading-8 text-gray-600">
+          {
+            product.shortDescription
+          }
         </p>
 
-        {/* Basic Info */}
+        {/* Product Meta */}
         <div className="mt-7 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-gray-100 bg-[#FAFAF7] p-4">
+          <div className="rounded-xl bg-[#F7FBF8] p-4">
             <p className="text-xs text-gray-400">
-              Package Size
+              Size
             </p>
 
-            <p className="font-english mt-1 font-semibold text-gray-800">
-              {product.size}
+            <p className="mt-1 font-semibold text-gray-800">
+              {
+                product.size
+              }
             </p>
           </div>
 
-          <div className="rounded-xl border border-gray-100 bg-[#FAFAF7] p-4">
+          <div className="rounded-xl bg-[#F7FBF8] p-4">
             <p className="text-xs text-gray-400">
-              Category
+              SKU
             </p>
 
             <p className="font-english mt-1 font-semibold text-gray-800">
-              {product.category}
+              {
+                product.sku
+              }
             </p>
           </div>
         </div>
 
-        {/* Quantity */}
-        <div className="mt-8">
-          <p className="mb-3 text-sm font-semibold text-gray-700">
-            পরিমাণ
-          </p>
+        {/* Stock */}
+        <div className="mt-5 flex items-center gap-2">
+          <PackageCheck
+            size={18}
+            className={
+              product.stock > 0
+                ? "text-green-600"
+                : "text-red-500"
+            }
+          />
 
-          <div className="flex items-center gap-3">
+          <p
+            className={`text-sm font-semibold ${
+              product.stock > 0
+                ? "text-green-700"
+                : "text-red-500"
+            }`}
+          >
+            {product.stock > 0
+              ? `${product.stock} টি Stock Available`
+              : "বর্তমানে Stock নেই"}
+          </p>
+        </div>
+
+        {/* Quantity + Cart */}
+        {product.stock > 0 && (
+          <div className="mt-7 flex flex-col gap-4 sm:flex-row">
             <div className="flex h-12 items-center overflow-hidden rounded-xl border border-gray-200">
               <button
                 type="button"
-                onClick={decreaseQuantity}
-                className="flex h-full w-12 items-center justify-center transition hover:bg-gray-50"
+                onClick={
+                  decreaseQuantity
+                }
+                disabled={
+                  quantity <= 1
+                }
+                className="flex h-full w-12 items-center justify-center disabled:opacity-30"
               >
-                <Minus size={17} />
+                <Minus
+                  size={17}
+                />
               </button>
 
-              <span className="flex h-full min-w-12 items-center justify-center border-x border-gray-200 font-english font-semibold">
+              <span className="font-english flex w-12 items-center justify-center font-bold">
                 {quantity}
               </span>
 
               <button
                 type="button"
-                onClick={increaseQuantity}
-                className="flex h-full w-12 items-center justify-center transition hover:bg-gray-50"
+                onClick={
+                  increaseQuantity
+                }
+                disabled={
+                  quantity >=
+                  product.stock
+                }
+                className="flex h-full w-12 items-center justify-center disabled:opacity-30"
               >
-                <Plus size={17} />
+                <Plus
+                  size={17}
+                />
               </button>
             </div>
 
-            <span className="text-sm text-gray-400">
-              সর্বোচ্চ {product.stock} টি
-            </span>
+            <button
+              type="button"
+              onClick={
+                handleAddToCart
+              }
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#14532D] px-6 py-3 font-semibold text-white"
+            >
+              {added ? (
+                <CheckCircle2
+                  size={19}
+                />
+              ) : (
+                <ShoppingCart
+                  size={19}
+                />
+              )}
+
+              {added
+                ? "Cart-এ Add হয়েছে"
+                : "Add to Cart"}
+            </button>
           </div>
+        )}
+
+        {/* Full Description */}
+        <div className="mt-9 border-t border-gray-100 pt-7">
+          <h2 className="text-xl font-bold text-gray-900">
+            Product Details
+          </h2>
+
+          <p className="mt-4 whitespace-pre-line leading-8 text-gray-600">
+            {
+              product.description
+            }
+          </p>
         </div>
 
-        {/* Real Add To Cart */}
-        <button
-          type="button"
-          onClick={handleAddToCart}
-          className={`mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-7 py-4 font-semibold text-white transition sm:w-auto ${
-            added
-              ? "bg-[#15803D]"
-              : "bg-[#14532D] hover:bg-[#166534]"
-          }`}
-        >
-          {added ? (
-            <>
-              <CheckCircle2 size={20} />
-              কার্টে যোগ হয়েছে
-            </>
-          ) : (
-            <>
-              <ShoppingCart size={20} />
+        {/* Usage */}
+        <div className="mt-7 rounded-2xl border border-green-100 bg-green-50/50 p-5">
+          <h2 className="font-bold text-gray-900">
+            Usage Information
+          </h2>
 
-              কার্টে যোগ করুন — ৳
-              {finalPrice * quantity}
-            </>
-          )}
-        </button>
-
-        {/* Trust */}
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
-          <div className="flex items-center gap-2 rounded-xl border border-gray-100 p-3">
-            <PackageCheck
-              size={19}
-              className="shrink-0 text-[#14532D]"
-            />
-
-            <span className="text-xs text-gray-600">
-              Quality Packaging
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-xl border border-gray-100 p-3">
-            <Truck
-              size={19}
-              className="shrink-0 text-[#14532D]"
-            />
-
-            <span className="text-xs text-gray-600">
-              Delivery Available
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-xl border border-gray-100 p-3">
-            <ShieldCheck
-              size={19}
-              className="shrink-0 text-[#14532D]"
-            />
-
-            <span className="text-xs text-gray-600">
-              Secure Order
-            </span>
-          </div>
+          <p className="mt-3 whitespace-pre-line text-sm leading-7 text-gray-600">
+            {
+              product.usageInfo
+            }
+          </p>
         </div>
       </div>
     </div>

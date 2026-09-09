@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -9,6 +10,7 @@ import {
 
 import {
   CheckCircle2,
+  Loader2,
   Pencil,
   Plus,
   Power,
@@ -17,110 +19,151 @@ import {
   X,
 } from "lucide-react";
 
-import { useAdminCatalogStore } from "@/stores/admin-catalog-store";
+import ProductImageField from "@/components/admin/products/ProductImageField";
 
-type ProductFormState = {
+import type {
+  Category,
+} from "@/types/category";
+
+import type {
+  DatabaseProduct,
+} from "@/types/product";
+
+import type {
+  ProductImage,
+} from "@/types/product-image";
+
+type ProductForm = {
   name: string;
+
   englishName: string;
-  category: string;
+
+  categoryId: string;
+
   regularPrice: string;
+
   salePrice: string;
+
   stock: string;
+
   size: string;
+
   badge: string;
+
   shortDescription: string;
+
   description: string;
+
+  usageInfo: string;
+
+  discountEnabled: boolean;
+
+  discountPrice: string;
+
+  discountStartAt: string;
+
+  discountEndAt: string;
 };
 
-const emptyForm: ProductFormState = {
+const emptyForm: ProductForm = {
   name: "",
+
   englishName: "",
-  category: "",
+
+  categoryId: "",
+
   regularPrice: "",
+
   salePrice: "",
+
   stock: "",
+
   size: "",
+
   badge: "",
+
   shortDescription: "",
+
   description: "",
+
+  usageInfo:
+    "Product Label এবং প্রয়োজনীয় নির্দেশনা অনুসরণ করুন।",
+
+  discountEnabled:
+    false,
+
+  discountPrice: "",
+
+  discountStartAt: "",
+
+  discountEndAt: "",
 };
 
-function makeSlug(value: string) {
-  const slug = value
-    .toLowerCase()
-    .trim()
-    .replace(
-      /[^a-z0-9]+/g,
-      "-"
+function toDateTimeLocalValue(
+  iso?: string
+) {
+  if (!iso) {
+    return "";
+  }
+
+  const date =
+    new Date(iso);
+
+  if (
+    Number.isNaN(
+      date.getTime()
     )
-    .replace(
-      /^-+|-+$/g,
-      ""
+  ) {
+    return "";
+  }
+
+  const offset =
+    date.getTimezoneOffset();
+
+  const localDate =
+    new Date(
+      date.getTime() -
+        offset * 60 * 1000
     );
 
-  return (
-    slug ||
-    `product-${Date.now()}`
-  );
+  return localDate
+    .toISOString()
+    .slice(0, 16);
 }
 
 export default function AdminProductsManager() {
-  const products =
-    useAdminCatalogStore(
-      (state) =>
-        state.products
-    );
+  const [
+    products,
+    setProducts,
+  ] = useState<
+    DatabaseProduct[]
+  >([]);
 
-  const categories =
-    useAdminCatalogStore(
-      (state) =>
-        state.categories
-    );
+  const [
+    categories,
+    setCategories,
+  ] = useState<
+    Category[]
+  >([]);
 
-  const addProduct =
-    useAdminCatalogStore(
-      (state) =>
-        state.addProduct
-    );
+  const [loading, setLoading] =
+    useState(true);
 
-  const updateProduct =
-    useAdminCatalogStore(
-      (state) =>
-        state.updateProduct
-    );
-
-  const deleteProduct =
-    useAdminCatalogStore(
-      (state) =>
-        state.deleteProduct
-    );
-
-  const toggleProductStatus =
-    useAdminCatalogStore(
-      (state) =>
-        state.toggleProductStatus
-    );
-
-  const [mounted, setMounted] =
+  const [saving, setSaving] =
     useState(false);
 
   const [showForm, setShowForm] =
     useState(false);
 
   const [
-    editingProductId,
-    setEditingProductId,
-  ] = useState<number | null>(
-    null
-  );
+    editingId,
+    setEditingId,
+  ] = useState<
+    string | null
+  >(null);
 
   const [search, setSearch] =
     useState("");
-
-  const [form, setForm] =
-    useState<ProductFormState>(
-      emptyForm
-    );
 
   const [error, setError] =
     useState("");
@@ -128,9 +171,116 @@ export default function AdminProductsManager() {
   const [success, setSuccess] =
     useState("");
 
+  const [form, setForm] =
+    useState<ProductForm>(
+      emptyForm
+    );
+
+  const [
+    existingImages,
+    setExistingImages,
+  ] = useState<
+    ProductImage[]
+  >([]);
+
+  const [
+    newImageFiles,
+    setNewImageFiles,
+  ] = useState<File[]>(
+    []
+  );
+
+  const [
+    removedPublicIds,
+    setRemovedPublicIds,
+  ] = useState<string[]>(
+    []
+  );
+
+  /* =========================
+     LOAD PRODUCTS + CATEGORIES
+  ========================= */
+
+  const loadData =
+    useCallback(async () => {
+      try {
+        setLoading(true);
+
+        setError("");
+
+        const [
+          productsResponse,
+          categoriesResponse,
+        ] =
+          await Promise.all([
+            fetch(
+              "/api/products?admin=1",
+              {
+                cache:
+                  "no-store",
+              }
+            ),
+
+            fetch(
+              "/api/categories?admin=1",
+              {
+                cache:
+                  "no-store",
+              }
+            ),
+          ]);
+
+        const productsData =
+          await productsResponse.json();
+
+        const categoriesData =
+          await categoriesResponse.json();
+
+        if (
+          !productsResponse.ok
+        ) {
+          throw new Error(
+            productsData.message ||
+              "Products load failed."
+          );
+        }
+
+        if (
+          !categoriesResponse.ok
+        ) {
+          throw new Error(
+            categoriesData.message ||
+              "Categories load failed."
+          );
+        }
+
+        setProducts(
+          productsData.products ??
+            []
+        );
+
+        setCategories(
+          categoriesData.categories ??
+            []
+        );
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Data load করা যায়নি।"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }, []);
+
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    loadData();
+  }, [loadData]);
+
+  /* =========================
+     SEARCH
+  ========================= */
 
   const filteredProducts =
     useMemo(() => {
@@ -151,10 +301,10 @@ export default function AdminProductsManager() {
           product.englishName
             .toLowerCase()
             .includes(query) ||
-          product.sku
+          product.category
             .toLowerCase()
             .includes(query) ||
-          product.category
+          product.sku
             .toLowerCase()
             .includes(query)
       );
@@ -163,83 +313,153 @@ export default function AdminProductsManager() {
       search,
     ]);
 
-  if (!mounted) {
-    return (
-      <div className="py-20 text-center text-sm text-gray-400">
-        Product Management Loading...
-      </div>
-    );
-  }
+  /* =========================
+     FORM HELPERS
+  ========================= */
 
   const updateField = (
-    field: keyof ProductFormState,
-    value: string
+    field:
+      keyof ProductForm,
+
+    value:
+      string | boolean
   ) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setForm(
+      (current) => ({
+        ...current,
+
+        [field]:
+          value,
+      })
+    );
   };
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm(
+      emptyForm
+    );
 
-    setEditingProductId(
+    setEditingId(
       null
     );
 
-    setShowForm(false);
+    setExistingImages(
+      []
+    );
+
+    setNewImageFiles(
+      []
+    );
+
+    setRemovedPublicIds(
+      []
+    );
+
+    setShowForm(
+      false
+    );
 
     setError("");
   };
 
+  /* =========================
+     START EDIT
+  ========================= */
+
   const startEdit = (
-    productId: number
+    product:
+      DatabaseProduct
   ) => {
-    const product =
-      products.find(
-        (item) =>
-          item.id === productId
-      );
-
-    if (!product) {
-      return;
-    }
-
     setForm({
-      name: product.name,
+      name:
+        product.name,
+
       englishName:
         product.englishName,
-      category:
-        product.category,
+
+      categoryId:
+        product.categoryId,
+
       regularPrice:
         String(
           product.regularPrice
         ),
+
       salePrice:
-        product.salePrice
+        product.salePrice !==
+        undefined
           ? String(
               product.salePrice
             )
           : "",
+
       stock:
-        String(product.stock),
-      size: product.size,
+        String(
+          product.stock
+        ),
+
+      size:
+        product.size,
+
       badge:
-        product.badge ?? "",
+        product.badge ??
+        "",
+
       shortDescription:
         product.shortDescription,
+
       description:
         product.description,
+
+      usageInfo:
+        product.usageInfo,
+
+      discountEnabled:
+        product.discountEnabled ??
+        false,
+
+      discountPrice:
+        product.discountPrice !==
+        undefined
+          ? String(
+              product.discountPrice
+            )
+          : "",
+
+      discountStartAt:
+        toDateTimeLocalValue(
+          product.discountStartAt
+        ),
+
+      discountEndAt:
+        toDateTimeLocalValue(
+          product.discountEndAt
+        ),
     });
 
-    setEditingProductId(
-      product.id
+    setExistingImages(
+      product.images ??
+      []
     );
 
-    setShowForm(true);
+    setNewImageFiles(
+      []
+    );
+
+    setRemovedPublicIds(
+      []
+    );
+
+    setEditingId(
+      product.databaseId
+    );
+
+    setShowForm(
+      true
+    );
 
     setError("");
+
     setSuccess("");
 
     window.scrollTo({
@@ -248,180 +468,503 @@ export default function AdminProductsManager() {
     });
   };
 
-  const handleSubmit = (
-    event: FormEvent<HTMLFormElement>
+  /* =========================
+     IMAGE HELPERS
+  ========================= */
+
+  const addImageFiles = (
+    files: File[]
+  ) => {
+    setNewImageFiles(
+      (current) => [
+        ...current,
+        ...files,
+      ]
+    );
+  };
+
+  const removeNewImage = (
+    index: number
+  ) => {
+    setNewImageFiles(
+      (current) =>
+        current.filter(
+          (_, itemIndex) =>
+            itemIndex !==
+            index
+        )
+    );
+  };
+
+  const removeExistingImage = (
+    image:
+      ProductImage
+  ) => {
+    setExistingImages(
+      (current) =>
+        current.filter(
+          (item) =>
+            item.publicId !==
+            image.publicId
+        )
+    );
+
+    setRemovedPublicIds(
+      (current) => {
+        if (
+          current.includes(
+            image.publicId
+          )
+        ) {
+          return current;
+        }
+
+        return [
+          ...current,
+          image.publicId,
+        ];
+      }
+    );
+  };
+
+  const uploadNewImages =
+    async (): Promise<
+      ProductImage[]
+    > => {
+      if (
+        newImageFiles.length ===
+        0
+      ) {
+        return [];
+      }
+
+      const imageFormData =
+        new FormData();
+
+      newImageFiles.forEach(
+        (file) => {
+          imageFormData.append(
+            "images",
+            file
+          );
+        }
+      );
+
+      const response =
+        await fetch(
+          "/api/uploads/products",
+          {
+            method: "POST",
+
+            body:
+              imageFormData,
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Image Upload failed."
+        );
+      }
+
+      return (
+        data.images ??
+        []
+      );
+    };
+
+  const deleteUploadedImages =
+    async (
+      publicIds: string[]
+    ) => {
+      if (
+        publicIds.length ===
+        0
+      ) {
+        return;
+      }
+
+      try {
+        const response =
+          await fetch(
+            "/api/uploads/products",
+            {
+              method:
+                "DELETE",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  publicIds,
+                }),
+            }
+          );
+
+        if (
+          !response.ok
+        ) {
+          console.error(
+            "Cloudinary cleanup failed"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Cloudinary cleanup error:",
+          error
+        );
+      }
+    };
+
+  /* =========================
+     SAVE PRODUCT
+  ========================= */
+
+  const handleSubmit = async (
+    event:
+      FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
     setError("");
+
     setSuccess("");
 
-    const regularPrice =
-      Number(
-        form.regularPrice
-      );
+    let newlyUploaded:
+      ProductImage[] = [];
 
-    const salePrice =
-      form.salePrice.trim()
-        ? Number(
-            form.salePrice
+    try {
+      setSaving(true);
+
+      if (
+        existingImages.length +
+          newImageFiles.length >
+        5
+      ) {
+        throw new Error(
+          "একটি Product-এ সর্বোচ্চ ৫টি Image রাখা যাবে।"
+        );
+      }
+
+      if (
+        form.discountEnabled
+      ) {
+        const discountPrice =
+          Number(
+            form.discountPrice
+          );
+
+        const regularPrice =
+          Number(
+            form.regularPrice
+          );
+
+        if (
+          !discountPrice ||
+          discountPrice >=
+            regularPrice
+        ) {
+          throw new Error(
+            "Discount Price Regular Price-এর চেয়ে কম হতে হবে।"
+          );
+        }
+
+        if (
+          !form.discountStartAt ||
+          !form.discountEndAt
+        ) {
+          throw new Error(
+            "Discount Start এবং End Time দিন।"
+          );
+        }
+
+        const start =
+          new Date(
+            form.discountStartAt
+          );
+
+        const end =
+          new Date(
+            form.discountEndAt
+          );
+
+        if (
+          end <= start
+        ) {
+          throw new Error(
+            "Discount End Time অবশ্যই Start Time-এর পরে হতে হবে।"
+          );
+        }
+      }
+
+      newlyUploaded =
+        await uploadNewImages();
+
+      const finalImages = [
+        ...existingImages,
+        ...newlyUploaded,
+      ];
+
+      const payload = {
+        name:
+          form.name,
+
+        englishName:
+          form.englishName,
+
+        categoryId:
+          form.categoryId,
+
+        regularPrice:
+          Number(
+            form.regularPrice
+          ),
+
+        salePrice:
+          form.salePrice
+            ? Number(
+                form.salePrice
+              )
+            : "",
+
+        stock:
+          Number(
+            form.stock
+          ),
+
+        size:
+          form.size,
+
+        badge:
+          form.badge,
+
+        shortDescription:
+          form.shortDescription,
+
+        description:
+          form.description,
+
+        usageInfo:
+          form.usageInfo,
+
+        images:
+          finalImages,
+
+        discountEnabled:
+          form.discountEnabled,
+
+        discountPrice:
+          form.discountEnabled &&
+          form.discountPrice
+            ? Number(
+                form.discountPrice
+              )
+            : undefined,
+
+        discountStartAt:
+          form.discountEnabled &&
+          form.discountStartAt
+            ? new Date(
+                form.discountStartAt
+              ).toISOString()
+            : undefined,
+
+        discountEndAt:
+          form.discountEnabled &&
+          form.discountEndAt
+            ? new Date(
+                form.discountEndAt
+              ).toISOString()
+            : undefined,
+      };
+
+      const response =
+        await fetch(
+          editingId
+            ? `/api/products/${editingId}`
+            : "/api/products",
+          {
+            method:
+              editingId
+                ? "PATCH"
+                : "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(
+                payload
+              ),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        await deleteUploadedImages(
+          newlyUploaded.map(
+            (image) =>
+              image.publicId
           )
-        : undefined;
+        );
 
-    const stock =
-      Number(form.stock);
+        throw new Error(
+          data.message ||
+            "Product Save failed."
+        );
+      }
 
-    if (
-      regularPrice <= 0
-    ) {
+      if (
+        removedPublicIds.length >
+        0
+      ) {
+        await deleteUploadedImages(
+          removedPublicIds
+        );
+      }
+
+      setSuccess(
+        editingId
+          ? "Product সফলভাবে Update হয়েছে।"
+          : "Product সফলভাবে Add হয়েছে।"
+      );
+
+      resetForm();
+
+      await loadData();
+    } catch (error) {
       setError(
-        "Regular Price সঠিকভাবে দিন।"
+        error instanceof Error
+          ? error.message
+          : "Product Save করা যায়নি।"
       );
-
-      return;
+    } finally {
+      setSaving(false);
     }
+  };
 
-    if (
-      salePrice !== undefined &&
-      salePrice >= regularPrice
-    ) {
-      setError(
-        "Sale Price অবশ্যই Regular Price-এর চেয়ে কম হতে হবে।"
-      );
+  /* =========================
+     STATUS
+  ========================= */
 
-      return;
-    }
+  const toggleStatus =
+    async (
+      product:
+        DatabaseProduct
+    ) => {
+      try {
+        setError("");
 
-    if (
-      stock < 0 ||
-      !Number.isInteger(stock)
-    ) {
-      setError(
-        "Stock একটি সঠিক সংখ্যা হতে হবে।"
-      );
+        const response =
+          await fetch(
+            `/api/products/${product.databaseId}`,
+            {
+              method:
+                "PATCH",
 
-      return;
-    }
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-    if (!form.category) {
-      setError(
-        "একটি Category নির্বাচন করুন।"
-      );
+              body:
+                JSON.stringify({
+                  active:
+                    !product.active,
+                }),
+            }
+          );
 
-      return;
-    }
+        const data =
+          await response.json();
 
-    const slug =
-      makeSlug(
-        form.englishName
-      );
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
 
-    const productData = {
-      name:
-        form.name.trim(),
-
-      englishName:
-        form.englishName.trim(),
-
-      slug,
-
-      shortDescription:
-        form.shortDescription.trim(),
-
-      description:
-        form.description.trim(),
-
-      regularPrice,
-
-      salePrice,
-
-      stock,
-
-      badge:
-        form.badge.trim() ||
-        undefined,
-
-      category:
-        form.category,
-
-      size:
-        form.size.trim(),
-
-      sku:
-        editingProductId
-          ? products.find(
-              (item) =>
-                item.id ===
-                editingProductId
-            )?.sku ??
-            `PRD-${Date.now()
-              .toString()
-              .slice(-6)}`
-          : `PRD-${Date.now()
-              .toString()
-              .slice(-6)}`,
-
-      usageInfo:
-        "Product Label এবং প্রয়োজনীয় নির্দেশনা অনুযায়ী ব্যবহার করুন।",
+        await loadData();
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Status পরিবর্তন করা যায়নি।"
+        );
+      }
     };
 
-    if (
-      editingProductId
-    ) {
-      updateProduct(
-        editingProductId,
-        productData
-      );
+  /* =========================
+     DELETE PRODUCT
+  ========================= */
 
-      setSuccess(
-        "Product সফলভাবে Update হয়েছে।"
-      );
-    } else {
-      addProduct(
-        productData
-      );
+  const handleDelete =
+    async (
+      product:
+        DatabaseProduct
+    ) => {
+      const confirmed =
+        window.confirm(
+          `${product.name} Delete করতে চান?`
+        );
 
-      setSuccess(
-        "নতুন Product সফলভাবে Add হয়েছে।"
-      );
-    }
+      if (!confirmed) {
+        return;
+      }
 
-    setForm(emptyForm);
+      try {
+        setError("");
 
-    setEditingProductId(
-      null
-    );
+        const response =
+          await fetch(
+            `/api/products/${product.databaseId}`,
+            {
+              method:
+                "DELETE",
+            }
+          );
 
-    setShowForm(false);
-  };
+        const data =
+          await response.json();
 
-  const handleDelete = (
-    id: number,
-    name: string
-  ) => {
-    const confirmed =
-      window.confirm(
-        `${name} Product-টি Delete করতে চান?`
-      );
+        if (!response.ok) {
+          throw new Error(
+            data.message
+          );
+        }
 
-    if (!confirmed) {
-      return;
-    }
+        setSuccess(
+          "Product Delete হয়েছে।"
+        );
 
-    deleteProduct(id);
-
-    setSuccess(
-      "Product Delete হয়েছে।"
-    );
-  };
+        await loadData();
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Product Delete করা যায়নি।"
+        );
+      }
+    };
 
   return (
     <div>
-      {/* Heading */}
+      {/* Header */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-semibold text-[#15803D]">
-            Catalog
+            MongoDB Catalog
           </p>
 
           <h1 className="mt-1 text-3xl font-bold text-gray-900">
@@ -429,7 +972,7 @@ export default function AdminProductsManager() {
           </h1>
 
           <p className="mt-2 text-sm text-gray-500">
-            Product Add, Edit, Delete এবং Status Manage করুন।
+            Product, Image, Price, Stock এবং Timed Discount পরিচালনা করুন।
           </p>
         </div>
 
@@ -439,13 +982,12 @@ export default function AdminProductsManager() {
             if (showForm) {
               resetForm();
             } else {
-              setShowForm(true);
-              setEditingProductId(
-                null
+              setShowForm(
+                true
               );
-              setForm(
-                emptyForm
-              );
+
+              setSuccess("");
+              setError("");
             }
           }}
           className="flex items-center justify-center gap-2 rounded-xl bg-[#14532D] px-5 py-3 text-sm font-semibold text-white"
@@ -453,7 +995,9 @@ export default function AdminProductsManager() {
           {showForm ? (
             <X size={18} />
           ) : (
-            <Plus size={18} />
+            <Plus
+              size={18}
+            />
           )}
 
           {showForm
@@ -462,36 +1006,36 @@ export default function AdminProductsManager() {
         </button>
       </div>
 
-      {/* =====================
-          Product Form
-      ====================== */}
+      {/* Product Form */}
       {showForm && (
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="mt-7 rounded-[26px] border border-green-100 bg-white p-6 shadow-sm"
         >
           <h2 className="text-xl font-bold text-gray-900">
-            {editingProductId
+            {editingId
               ? "Product Edit করুন"
               : "নতুন Product Add করুন"}
           </h2>
 
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
-            
-            {/* Bengali Name */}
+            {/* Bangla Name */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Product Name *
+                Product Name
               </label>
 
               <input
-                type="text"
                 required
-                value={form.name}
-                onChange={(event) =>
+                value={
+                  form.name
+                }
+                onChange={(e) =>
                   updateField(
                     "name",
-                    event.target.value
+                    e.target.value
                   )
                 }
                 placeholder="বাংলা Product Name"
@@ -499,25 +1043,24 @@ export default function AdminProductsManager() {
               />
             </div>
 
-            {/* English */}
+            {/* English Name */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                English Name *
+                English Name
               </label>
 
               <input
-                type="text"
                 required
                 value={
                   form.englishName
                 }
-                onChange={(event) =>
+                onChange={(e) =>
                   updateField(
                     "englishName",
-                    event.target.value
+                    e.target.value
                   )
                 }
-                placeholder="Hair Care Tonic"
+                placeholder="English Product Name"
                 className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
               />
             </div>
@@ -525,21 +1068,21 @@ export default function AdminProductsManager() {
             {/* Category */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Category *
+                Category
               </label>
 
               <select
                 required
                 value={
-                  form.category
+                  form.categoryId
                 }
-                onChange={(event) =>
+                onChange={(e) =>
                   updateField(
-                    "category",
-                    event.target.value
+                    "categoryId",
+                    e.target.value
                   )
                 }
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-[#14532D]"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3"
               >
                 <option value="">
                   Category নির্বাচন করুন
@@ -547,21 +1090,21 @@ export default function AdminProductsManager() {
 
                 {categories
                   .filter(
-                    (category) =>
-                      category.active
+                    (item) =>
+                      item.active
                   )
                   .map(
-                    (category) => (
+                    (item) => (
                       <option
                         key={
-                          category.id
+                          item.id
                         }
                         value={
-                          category.name
+                          item.id
                         }
                       >
                         {
-                          category.name
+                          item.name
                         }
                       </option>
                     )
@@ -572,28 +1115,29 @@ export default function AdminProductsManager() {
             {/* Size */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Package Size *
+                Size
               </label>
 
               <input
-                type="text"
                 required
-                value={form.size}
-                onChange={(event) =>
+                value={
+                  form.size
+                }
+                onChange={(e) =>
                   updateField(
                     "size",
-                    event.target.value
+                    e.target.value
                   )
                 }
                 placeholder="30 ml"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
+                className="w-full rounded-xl border border-gray-200 px-4 py-3"
               />
             </div>
 
             {/* Regular Price */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Regular Price *
+                Regular Price
               </label>
 
               <input
@@ -603,18 +1147,18 @@ export default function AdminProductsManager() {
                 value={
                   form.regularPrice
                 }
-                onChange={(event) =>
+                onChange={(e) =>
                   updateField(
                     "regularPrice",
-                    event.target.value
+                    e.target.value
                   )
                 }
-                placeholder="500"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
+                placeholder="Regular Price"
+                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3"
               />
             </div>
 
-            {/* Sale */}
+            {/* Sale Price */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
                 Sale Price
@@ -626,36 +1170,38 @@ export default function AdminProductsManager() {
                 value={
                   form.salePrice
                 }
-                onChange={(event) =>
+                onChange={(e) =>
                   updateField(
                     "salePrice",
-                    event.target.value
+                    e.target.value
                   )
                 }
                 placeholder="Optional"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
+                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3"
               />
             </div>
 
             {/* Stock */}
             <div>
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Stock *
+                Stock
               </label>
 
               <input
                 type="number"
                 min="0"
                 required
-                value={form.stock}
-                onChange={(event) =>
+                value={
+                  form.stock
+                }
+                onChange={(e) =>
                   updateField(
                     "stock",
-                    event.target.value
+                    e.target.value
                   )
                 }
-                placeholder="10"
-                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
+                placeholder="Stock"
+                className="font-english w-full rounded-xl border border-gray-200 px-4 py-3"
               />
             </div>
 
@@ -666,23 +1212,122 @@ export default function AdminProductsManager() {
               </label>
 
               <input
-                type="text"
-                value={form.badge}
-                onChange={(event) =>
+                value={
+                  form.badge
+                }
+                onChange={(e) =>
                   updateField(
                     "badge",
-                    event.target.value
+                    e.target.value
                   )
                 }
-                placeholder="New / Offer / Best Seller"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
+                placeholder="New / Popular / Offer"
+                className="w-full rounded-xl border border-gray-200 px-4 py-3"
               />
             </div>
 
-            {/* Short */}
+            {/* Timed Discount */}
+            <div className="rounded-2xl border border-green-100 bg-green-50/40 p-5 sm:col-span-2">
+              <label className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-bold text-gray-900">
+                    Timed Discount
+                  </p>
+
+                  <p className="mt-1 text-xs leading-6 text-gray-500">
+                    নির্দিষ্ট সময়ের জন্য Discount Price এবং Countdown চালু করুন।
+                  </p>
+                </div>
+
+                <input
+                  type="checkbox"
+                  checked={
+                    form.discountEnabled
+                  }
+                  onChange={(e) =>
+                    updateField(
+                      "discountEnabled",
+                      e.target.checked
+                    )
+                  }
+                  className="h-5 w-5"
+                />
+              </label>
+
+              {form.discountEnabled && (
+                <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-gray-600">
+                      Discount Price
+                    </label>
+
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={
+                        form.discountPrice
+                      }
+                      onChange={(e) =>
+                        updateField(
+                          "discountPrice",
+                          e.target.value
+                        )
+                      }
+                      placeholder="800"
+                      className="font-english w-full rounded-xl border border-gray-200 bg-white px-4 py-3"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-gray-600">
+                      Offer Start
+                    </label>
+
+                    <input
+                      type="datetime-local"
+                      required
+                      value={
+                        form.discountStartAt
+                      }
+                      onChange={(e) =>
+                        updateField(
+                          "discountStartAt",
+                          e.target.value
+                        )
+                      }
+                      className="font-english w-full rounded-xl border border-gray-200 bg-white px-4 py-3"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold text-gray-600">
+                      Offer End
+                    </label>
+
+                    <input
+                      type="datetime-local"
+                      required
+                      value={
+                        form.discountEndAt
+                      }
+                      onChange={(e) =>
+                        updateField(
+                          "discountEndAt",
+                          e.target.value
+                        )
+                      }
+                      className="font-english w-full rounded-xl border border-gray-200 bg-white px-4 py-3"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Short Description */}
             <div className="sm:col-span-2">
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Short Description *
+                Short Description
               </label>
 
               <textarea
@@ -691,21 +1336,20 @@ export default function AdminProductsManager() {
                 value={
                   form.shortDescription
                 }
-                onChange={(event) =>
+                onChange={(e) =>
                   updateField(
                     "shortDescription",
-                    event.target.value
+                    e.target.value
                   )
                 }
-                placeholder="Product-এর সংক্ষিপ্ত Description"
-                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
+                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3"
               />
             </div>
 
-            {/* Full */}
+            {/* Description */}
             <div className="sm:col-span-2">
               <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Full Description *
+                Full Description
               </label>
 
               <textarea
@@ -714,16 +1358,55 @@ export default function AdminProductsManager() {
                 value={
                   form.description
                 }
-                onChange={(event) =>
+                onChange={(e) =>
                   updateField(
                     "description",
-                    event.target.value
+                    e.target.value
                   )
                 }
-                placeholder="Product সম্পর্কে বিস্তারিত লিখুন"
-                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-[#14532D]"
+                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3"
               />
             </div>
+
+            {/* Usage */}
+            <div className="sm:col-span-2">
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Usage Information
+              </label>
+
+              <textarea
+                rows={3}
+                value={
+                  form.usageInfo
+                }
+                onChange={(e) =>
+                  updateField(
+                    "usageInfo",
+                    e.target.value
+                  )
+                }
+                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3"
+              />
+            </div>
+
+            {/* Images */}
+            <ProductImageField
+              existingImages={
+                existingImages
+              }
+              newFiles={
+                newImageFiles
+              }
+              onAddFiles={
+                addImageFiles
+              }
+              onRemoveExisting={
+                removeExistingImage
+              }
+              onRemoveNew={
+                removeNewImage
+              }
+            />
           </div>
 
           {error && (
@@ -732,41 +1415,36 @@ export default function AdminProductsManager() {
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="submit"
-              className="rounded-xl bg-[#14532D] px-6 py-3 text-sm font-semibold text-white"
-            >
-              {editingProductId
-                ? "Update Product"
-                : "Save Product"}
-            </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="mt-6 flex items-center gap-2 rounded-xl bg-[#14532D] px-6 py-3 font-semibold text-white disabled:opacity-60"
+          >
+            {saving && (
+              <Loader2
+                size={17}
+                className="animate-spin"
+              />
+            )}
 
-            <button
-              type="button"
-              onClick={
-                resetForm
-              }
-              className="rounded-xl border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-600"
-            >
-              Cancel
-            </button>
-          </div>
+            {editingId
+              ? "Update Product"
+              : "Save Product"}
+          </button>
         </form>
       )}
 
-      {/* Success */}
       {success && (
-        <div className="mt-5 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-[#166534]">
-          <CheckCircle2 size={18} />
+        <div className="mt-5 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <CheckCircle2
+            size={18}
+          />
 
           {success}
         </div>
       )}
 
-      {/* =====================
-          Search
-      ====================== */}
+      {/* Search */}
       <div className="mt-7 rounded-[22px] border border-gray-100 bg-white p-4 shadow-sm">
         <div className="relative max-w-xl">
           <Search
@@ -775,198 +1453,214 @@ export default function AdminProductsManager() {
           />
 
           <input
-            type="text"
             value={search}
-            onChange={(event) =>
+            onChange={(e) =>
               setSearch(
-                event.target.value
+                e.target.value
               )
             }
-            placeholder="Name, SKU বা Category দিয়ে Search..."
-            className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4 outline-none focus:border-[#14532D]"
+            placeholder="Product Search..."
+            className="w-full rounded-xl border border-gray-200 py-3 pl-11 pr-4"
           />
         </div>
       </div>
 
-      {/* =====================
-          Product Table
-      ====================== */}
-      <div className="mt-6 overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
-            <thead className="bg-[#F7FBF8]">
-              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="px-5 py-4">
-                  Product
-                </th>
+      {/* Table */}
+      {loading ? (
+        <div className="py-20">
+          <Loader2
+            size={30}
+            className="mx-auto animate-spin text-[#14532D]"
+          />
+        </div>
+      ) : (
+        <div className="mt-6 overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[950px]">
+              <thead className="bg-[#F7FBF8]">
+                <tr className="text-left text-xs text-gray-500">
+                  <th className="px-5 py-4">
+                    Product
+                  </th>
 
-                <th className="px-5 py-4">
-                  Category
-                </th>
+                  <th className="px-5 py-4">
+                    Category
+                  </th>
 
-                <th className="px-5 py-4">
-                  Price
-                </th>
+                  <th className="px-5 py-4">
+                    Price
+                  </th>
 
-                <th className="px-5 py-4">
-                  Stock
-                </th>
+                  <th className="px-5 py-4">
+                    Discount
+                  </th>
 
-                <th className="px-5 py-4">
-                  Status
-                </th>
+                  <th className="px-5 py-4">
+                    Stock
+                  </th>
 
-                <th className="px-5 py-4 text-right">
-                  Action
-                </th>
-              </tr>
-            </thead>
+                  <th className="px-5 py-4">
+                    Status
+                  </th>
 
-            <tbody className="divide-y divide-gray-100">
-              {filteredProducts.map(
-                (product) => (
-                  <tr
-                    key={
-                      product.id
-                    }
-                  >
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-gray-900">
-                        {
-                          product.name
-                        }
-                      </p>
+                  <th className="px-5 py-4 text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
 
-                      <p className="font-english mt-1 text-xs text-gray-400">
-                        {
-                          product.sku
-                        }
-                      </p>
-                    </td>
-
-                    <td className="px-5 py-4 text-sm text-gray-600">
-                      {
-                        product.category
+              <tbody className="divide-y divide-gray-100">
+                {filteredProducts.map(
+                  (product) => (
+                    <tr
+                      key={
+                        product.databaseId
                       }
-                    </td>
+                    >
+                      <td className="px-5 py-4">
+                        <p className="font-semibold">
+                          {
+                            product.name
+                          }
+                        </p>
 
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-[#14532D]">
-                        ৳
-                        {product.salePrice ??
-                          product.regularPrice}
-                      </p>
+                        <p className="font-english mt-1 text-xs text-gray-400">
+                          {
+                            product.sku
+                          }
+                        </p>
+                      </td>
 
-                      {product.salePrice && (
-                        <p className="text-xs text-gray-400 line-through">
+                      <td className="px-5 py-4 text-sm">
+                        {
+                          product.category
+                        }
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <p className="font-semibold">
                           ৳
                           {
                             product.regularPrice
                           }
                         </p>
-                      )}
-                    </td>
 
-                    <td className="px-5 py-4 font-english text-sm font-semibold">
-                      {
-                        product.stock
-                      }
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          product.active
-                            ? "bg-green-50 text-green-700"
-                            : "bg-gray-100 text-gray-500"
-                        }`}
-                      >
-                        {product.active
-                          ? "Active"
-                          : "Inactive"}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-1">
-                        
-                        {/* Status */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleProductStatus(
-                              product.id
-                            )
-                          }
-                          className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 hover:bg-green-50 hover:text-[#14532D]"
-                          title="Status পরিবর্তন"
-                        >
-                          <Power
-                            size={
-                              17
+                        {product.salePrice !==
+                          undefined && (
+                          <p className="text-xs text-green-600">
+                            Sale: ৳
+                            {
+                              product.salePrice
                             }
-                          />
-                        </button>
+                          </p>
+                        )}
+                      </td>
 
-                        {/* Edit */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startEdit(
-                              product.id
-                            )
-                          }
-                          className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 hover:bg-blue-50 hover:text-blue-600"
-                          title="Edit"
-                        >
-                          <Pencil
-                            size={
-                              17
-                            }
-                          />
-                        </button>
+                      <td className="px-5 py-4 text-sm">
+                        {product.discountEnabled ? (
+                          <div>
+                            <p className="font-semibold text-red-600">
+                              ৳
+                              {
+                                product.discountPrice
+                              }
+                            </p>
 
-                        {/* Delete */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDelete(
-                              product.id,
-                              product.name
-                            )
-                          }
-                          className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-500"
-                          title="Delete"
+                            <p className="mt-1 text-xs text-gray-400">
+                              Timed Offer
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">
+                            —
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {
+                          product.stock
+                        }
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            product.active
+                              ? "bg-green-50 text-green-700"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
                         >
-                          <Trash2
-                            size={
-                              17
+                          {product.active
+                            ? "Active"
+                            : "Inactive"}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            title="Status"
+                            onClick={() =>
+                              toggleStatus(
+                                product
+                              )
                             }
-                          />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
+                            className="rounded-lg p-2 hover:bg-gray-50"
+                          >
+                            <Power
+                              size={17}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            title="Edit"
+                            onClick={() =>
+                              startEdit(
+                                product
+                              )
+                            }
+                            className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                          >
+                            <Pencil
+                              size={17}
+                            />
+                          </button>
+
+                          <button
+                            type="button"
+                            title="Delete"
+                            onClick={() =>
+                              handleDelete(
+                                product
+                              )
+                            }
+                            className="rounded-lg p-2 text-red-500 hover:bg-red-50"
+                          >
+                            <Trash2
+                              size={17}
+                            />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
 
-        {filteredProducts.length ===
+      {!loading &&
+        filteredProducts.length ===
           0 && (
-          <div className="px-6 py-14 text-center text-sm text-gray-400">
+          <div className="mt-6 rounded-[24px] border border-dashed border-gray-200 bg-white py-16 text-center text-sm text-gray-400">
             কোনো Product পাওয়া যায়নি।
           </div>
         )}
-      </div>
-
-      {/* Notice */}
-      <div className="mt-6 rounded-2xl border border-amber-100 bg-amber-50 p-5 text-sm leading-7 text-amber-900">
-        Admin Product changes এখন শুধু এই Browser-এর LocalStorage-এ থাকবে।
-        Backend-এর পরে MongoDB-তে Save হবে এবং Public Product Page-এ
-        automatically দেখা যাবে।
-      </div>
     </div>
   );
 }

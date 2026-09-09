@@ -1,25 +1,70 @@
-export type FrontendAppointment = {
+export type AppointmentStatus =
+  | "pending"
+  | "confirmed"
+  | "completed"
+  | "cancelled";
+
+export type AppointmentPatient = {
+  name: string;
+
+  phone: string;
+
+  age?: number;
+
+  gender?: string;
+};
+
+export type AppointmentTreatment = {
+  slug: string;
+
+  title: string;
+
+  englishTitle: string;
+
+  fee: number;
+
+  duration: number;
+};
+
+export type AppointmentStatusHistory = {
+  status: AppointmentStatus;
+
+  at: string;
+};
+
+export type DatabaseAppointment = {
+  id: string;
+
   appointmentNumber: string;
 
-  treatmentSlug: string;
-  treatmentTitle: string;
+  userId?: string | null;
 
-  consultationFee: number;
-  duration: number;
+  treatment:
+    AppointmentTreatment;
+
+  patient:
+    AppointmentPatient;
 
   date: string;
-  time: string;
 
-  patient: {
-    name: string;
-    phone: string;
-    age?: string;
-    gender?: string;
-  };
+  time: string;
 
   note?: string;
 
-  status: "pending";
+  status:
+    AppointmentStatus;
+
+  statusHistory:
+    AppointmentStatusHistory[];
 
   createdAt: string;
+
+  updatedAt: string;
 };
+
+/*
+  পুরনো frontend import যেন
+  সাথে সাথে build না ভাঙে।
+*/
+export type FrontendAppointment =
+  DatabaseAppointment;
