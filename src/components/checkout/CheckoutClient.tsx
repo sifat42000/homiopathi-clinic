@@ -793,17 +793,11 @@ export default function CheckoutClient() {
                 </div>
               </div>
 
-              <div
-                className={`mt-5 rounded-xl p-3 text-xs leading-6 ${
-                  validation.valid
-                    ? "bg-green-50 text-green-700"
-                    : "bg-amber-50 text-amber-800"
-                }`}
-              >
-                {validation.valid
-                  ? "Price এবং Stock MongoDB থেকে Check করা হয়েছে।"
-                  : "Cart-এর কিছু Product পরিবর্তন হয়েছে। উপরের Message দেখে Cart ঠিক করুন।"}
-              </div>
+              {!validation.valid && (
+                <div className="mt-5 rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-800">
+                  Cart-এর কিছু Product পরিবর্তন হয়েছে। উপরের Message দেখে Cart ঠিক করুন।
+                </div>
+              )}
             </>
           )}
         </div>

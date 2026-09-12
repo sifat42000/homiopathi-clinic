@@ -1,8 +1,11 @@
 import {
   getWebsiteSettings,
 } from "@/lib/db/settings";
+import { connection } from "next/server";
 
 export default async function AnnouncementBar() {
+  await connection();
+
   const settings =
     await getWebsiteSettings();
 

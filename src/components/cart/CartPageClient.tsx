@@ -312,11 +312,6 @@ export default function CartPageClient() {
             </span>
           </div>
 
-          <div className="rounded-xl bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-800">
-            ৳80 Delivery Charge এখন Demo হিসেবে রাখা হয়েছে। পরে Admin
-            Settings/Checkout অনুযায়ী এটি পরিবর্তনযোগ্য করব।
-          </div>
-
           {/* Divider */}
           <div className="h-px bg-gray-100" />
 
