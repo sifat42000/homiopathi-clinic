@@ -31,6 +31,10 @@ import {
   useCartStore,
 } from "@/stores/cart-store";
 
+import {
+  useWebsiteSettings,
+} from "@/components/layout/WebsiteSettingsProvider";
+
 const navItems = [
   {
     label: "হোম",
@@ -90,6 +94,8 @@ function hasAdminRole(
 }
 
 export default function Header() {
+  const settings = useWebsiteSettings();
+
   const pathname =
     usePathname();
 
@@ -197,11 +203,11 @@ export default function Header() {
           className="shrink-0"
         >
           <h1 className="text-xl font-bold text-[#14532D] sm:text-2xl">
-            হোমিও কেয়ার
+            {settings.clinicName}
           </h1>
 
           <p className="font-english -mt-1 text-[8px] uppercase tracking-[0.19em] text-gray-400">
-            Homeopathic Clinic
+            {settings.englishName}
           </p>
         </Link>
 

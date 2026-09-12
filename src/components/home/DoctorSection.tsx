@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   ArrowRight,
@@ -12,8 +14,13 @@ import {
 } from "lucide-react";
 
 import SectionTitle from "@/components/ui/SectionTitle";
+import {
+  useWebsiteSettings,
+} from "@/components/layout/WebsiteSettingsProvider";
 
 export default function DoctorSection() {
+  const settings = useWebsiteSettings();
+
   return (
     <section className="bg-white py-16 sm:py-20 lg:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -86,7 +93,7 @@ export default function DoctorSection() {
             {/* Doctor Name */}
             <div className="mt-8">
               <h3 className="text-2xl font-bold text-gray-900">
-                ডা. আপনার ডাক্তারের নাম
+                {settings.doctorName}
               </h3>
 
               <p className="mt-1 text-sm font-medium text-[#15803D]">
@@ -170,7 +177,7 @@ export default function DoctorSection() {
                     </p>
 
                     <p className="mt-0.5 text-xs text-gray-500">
-                      সময় পরে যুক্ত করা হবে
+                      {settings.chamberTime}
                     </p>
                   </div>
                 </div>
@@ -191,7 +198,7 @@ export default function DoctorSection() {
                     </p>
 
                     <p className="mt-0.5 text-xs text-gray-500">
-                      ঠিকানা পরে যুক্ত হবে
+                      {settings.address}
                     </p>
                   </div>
                 </div>

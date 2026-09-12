@@ -4,8 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { CalendarDays, Menu, Phone, X } from "lucide-react";
 import { navItems } from "@/data/navigation";
+import {
+  useWebsiteSettings,
+} from "@/components/layout/WebsiteSettingsProvider";
 
 export default function MobileMenu() {
+  const settings = useWebsiteSettings();
+
   const [isOpen, setIsOpen] = useState(false);
 
   const closeMenu = () => {
@@ -32,11 +37,11 @@ export default function MobileMenu() {
             <Link href="/" onClick={closeMenu}>
               <div>
                 <h2 className="text-xl font-bold text-[#14532D]">
-                  হোমিও কেয়ার
+                  {settings.clinicName}
                 </h2>
 
                 <p className="font-english text-[10px] uppercase tracking-[0.18em] text-gray-400">
-                  Homeopathic Clinic
+                  {settings.englishName}
                 </p>
               </div>
             </Link>
@@ -78,14 +83,14 @@ export default function MobileMenu() {
             </Link>
 
             {/* Call Button */}
-            <button
-              type="button"
+            <a
+              href={`tel:${settings.phone}`}
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#14532D] px-5 py-3.5 font-semibold text-[#14532D]"
             >
               <Phone size={18} />
 
-              যোগাযোগ করুন
-            </button>
+              {settings.phone}
+            </a>
           </nav>
         </div>
       )}

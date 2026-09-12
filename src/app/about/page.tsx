@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   BookOpenCheck,
@@ -10,8 +12,13 @@ import {
 
 import PublicLayout from "@/components/layout/PublicLayout";
 import PageHero from "@/components/ui/PageHero";
+import {
+  useWebsiteSettings,
+} from "@/components/layout/WebsiteSettingsProvider";
 
 export default function AboutPage() {
+  const settings = useWebsiteSettings();
+
   return (
     <PublicLayout>
       
@@ -57,7 +64,7 @@ export default function AboutPage() {
             </span>
 
             <h2 className="mt-5 text-3xl font-bold leading-tight text-[#163020] sm:text-4xl">
-              ডা. আপনার ডাক্তারের নাম
+              {settings.doctorName}
             </h2>
 
             <p className="mt-2 font-medium text-[#15803D]">

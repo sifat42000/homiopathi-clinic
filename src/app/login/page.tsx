@@ -21,8 +21,13 @@ import {
 import {
   signIn,
 } from "@/lib/auth-client";
+import {
+  useWebsiteSettings,
+} from "@/components/layout/WebsiteSettingsProvider";
 
 export default function LoginPage() {
+  const settings = useWebsiteSettings();
+
   const router =
     useRouter();
 
@@ -113,11 +118,11 @@ export default function LoginPage() {
           className="block text-center"
         >
           <h1 className="text-3xl font-bold text-[#14532D]">
-            হোমিও কেয়ার
+            {settings.clinicName}
           </h1>
 
           <p className="font-english mt-1 text-xs uppercase tracking-[0.18em] text-gray-400">
-            Homeopathic Clinic
+            {settings.englishName}
           </p>
         </Link>
 

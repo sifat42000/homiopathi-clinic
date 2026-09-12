@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { hindSiliguri, inter } from "./fonts";
 import "./globals.css";
+import {
+  WebsiteSettingsProvider,
+} from "@/components/layout/WebsiteSettingsProvider";
 
 export const metadata: Metadata = {
   title: "Homeopathy Clinic",
@@ -18,7 +21,11 @@ export default function RootLayout({
       lang="bn"
       className={`${hindSiliguri.variable} ${inter.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <WebsiteSettingsProvider>
+          {children}
+        </WebsiteSettingsProvider>
+      </body>
     </html>
   );
 }

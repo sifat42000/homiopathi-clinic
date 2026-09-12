@@ -28,6 +28,9 @@ import {
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
+import {
+  useWebsiteSettings,
+} from "@/components/layout/WebsiteSettingsProvider";
 
 type AdminShellProps = {
   children: ReactNode;
@@ -99,6 +102,8 @@ const adminLinks = [
 export default function AdminShell({
   children,
 }: AdminShellProps) {
+  const settings = useWebsiteSettings();
+
   const pathname = usePathname();
   const router = useRouter();
 
@@ -151,7 +156,7 @@ export default function AdminShell({
             onClick={closeSidebar}
           >
             <h2 className="text-xl font-bold text-[#14532D]">
-              হোমিও কেয়ার
+              {settings.clinicName}
             </h2>
 
             <p className="font-english mt-1 text-[9px] uppercase tracking-[0.18em] text-gray-400">

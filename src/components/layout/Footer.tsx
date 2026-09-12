@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   Clock3,
@@ -7,7 +9,13 @@ import {
   Phone,
 } from "lucide-react";
 
+import {
+  useWebsiteSettings,
+} from "@/components/layout/WebsiteSettingsProvider";
+
 export default function Footer() {
+  const settings = useWebsiteSettings();
+
   const currentYear = new Date().getFullYear();
 
   return (
@@ -18,11 +26,11 @@ export default function Footer() {
           <div>
             <Link href="/" className="inline-block">
               <h2 className="text-2xl font-bold">
-                হোমিও কেয়ার
+                {settings.clinicName}
               </h2>
 
               <p className="font-english mt-1 text-[10px] uppercase tracking-[0.2em] text-green-200/60">
-                Homeopathic Clinic
+                {settings.englishName}
               </p>
             </Link>
 
@@ -147,9 +155,9 @@ export default function Footer() {
                   className="mt-0.5 shrink-0"
                 />
 
-                <span>
-                  মোবাইল নম্বর পরে যুক্ত হবে
-                </span>
+                <a href={`tel:${settings.phone}`}>
+                  {settings.phone}
+                </a>
               </div>
 
               <div className="flex items-start gap-3">
@@ -158,9 +166,9 @@ export default function Footer() {
                   className="mt-0.5 shrink-0"
                 />
 
-                <span>
-                  Email Address পরে যুক্ত হবে
-                </span>
+                <a href={`mailto:${settings.email}`}>
+                  {settings.email}
+                </a>
               </div>
 
               <div className="flex items-start gap-3">
@@ -169,9 +177,7 @@ export default function Footer() {
                   className="mt-0.5 shrink-0"
                 />
 
-                <span>
-                  চেম্বারের পূর্ণ ঠিকানা পরে যুক্ত হবে
-                </span>
+                <span>{settings.address}</span>
               </div>
 
               <div className="flex items-start gap-3">
@@ -180,9 +186,7 @@ export default function Footer() {
                   className="mt-0.5 shrink-0"
                 />
 
-                <span>
-                  চেম্বারের সময় পরে যুক্ত হবে
-                </span>
+                <span>{settings.chamberTime}</span>
               </div>
             </div>
           </div>

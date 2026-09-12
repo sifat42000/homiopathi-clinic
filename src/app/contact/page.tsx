@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Clock3,
   Mail,
@@ -9,8 +11,13 @@ import {
 import ContactForm from "@/components/contact/ContactForm";
 import PublicLayout from "@/components/layout/PublicLayout";
 import PageHero from "@/components/ui/PageHero";
+import {
+  useWebsiteSettings,
+} from "@/components/layout/WebsiteSettingsProvider";
 
 export default function ContactPage() {
+  const settings = useWebsiteSettings();
+
   return (
     <PublicLayout>
       
@@ -39,7 +46,7 @@ export default function ContactPage() {
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-gray-500">
-                আসল মোবাইল নম্বর পরে যুক্ত হবে
+                {settings.phone}
               </p>
             </div>
 
@@ -54,7 +61,7 @@ export default function ContactPage() {
               </h3>
 
               <p className="font-english mt-2 text-sm leading-6 text-gray-500">
-                Email address পরে যুক্ত হবে
+                {settings.email}
               </p>
             </div>
 
@@ -69,7 +76,7 @@ export default function ContactPage() {
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-gray-500">
-                পূর্ণ Chamber Address পরে যুক্ত হবে
+                {settings.address}
               </p>
             </div>
 
@@ -84,7 +91,7 @@ export default function ContactPage() {
               </h3>
 
               <p className="mt-2 text-sm leading-6 text-gray-500">
-                আসল Chamber Schedule পরে যুক্ত হবে
+                {settings.chamberTime}
               </p>
             </div>
 
