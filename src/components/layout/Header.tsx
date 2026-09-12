@@ -61,6 +61,11 @@ const navItems = [
     label: "রিভিউ",
     href: "/reviews",
   },
+
+  {
+    label: "যোগাযোগ",
+    href: "/contact",
+  },
 ];
 
 function hasAdminRole(
