@@ -29,6 +29,8 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 
 body {
@@ -37,6 +39,14 @@ body {
   color: var(--foreground);
   font-family: var(--font-bangla), sans-serif;
   line-height: 1.6;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+/* Keep horizontal scrolling inside the element that owns it. */
+.overflow-x-auto {
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
 }
 
 button,
