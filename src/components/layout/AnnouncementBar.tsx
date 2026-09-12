@@ -1,16 +1,51 @@
-import {
-  getWebsiteSettings,
-} from "@/lib/db/settings";
-import { connection } from "next/server";
+"use client";
 
-export default async function AnnouncementBar() {
-  await connection();
+import { useEffect, useState } from "react";
 
-  const settings =
-    await getWebsiteSettings();
+type AnnouncementSettings = {
+  announcement: string;
+  announcementEnabled: boolean;
+};
+
+export default function AnnouncementBar() {
+  const [settings, setSettings] =
+    useState<AnnouncementSettings | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadAnnouncement = async () => {
+      try {
+        const response = await fetch("/api/settings", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+
+        if (active) {
+          setSettings(data.settings);
+        }
+      } catch {
+        // Keep the existing announcement visible when a refresh fails.
+      }
+    };
+
+    loadAnnouncement();
+
+    const interval = window.setInterval(loadAnnouncement, 5000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   if (
-    !settings.announcementEnabled ||
+    !settings?.announcementEnabled ||
     !settings.announcement
   ) {
     return null;

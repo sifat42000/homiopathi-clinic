@@ -25,6 +25,10 @@ export async function GET() {
       success: true,
 
       settings,
+    }, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
     });
   } catch (error) {
     console.error(

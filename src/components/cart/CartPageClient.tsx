@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DELIVERY_CHARGE } from "@/lib/shop-config";
 import {
   ArrowRight,
   Minus,
@@ -39,9 +38,41 @@ export default function CartPageClient() {
   );
 
   const [mounted, setMounted] = useState(false);
+  const [deliveryCharge, setDeliveryCharge] = useState(80);
 
   useEffect(() => {
     setMounted(true);
+
+    let active = true;
+
+    const loadSettings = async () => {
+      try {
+        const response = await fetch("/api/settings", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+
+        if (active && Number.isFinite(data.settings?.deliveryCharge)) {
+          setDeliveryCharge(data.settings.deliveryCharge);
+        }
+      } catch {
+        // Keep the default charge when settings cannot be loaded.
+      }
+    };
+
+    loadSettings();
+
+    const interval = window.setInterval(loadSettings, 5000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
   if (!mounted) {
@@ -64,11 +95,11 @@ export default function CartPageClient() {
     0
   );
 
-  const deliveryCharge =
-    items.length > 0 ? DELIVERY_CHARGE : 0;
+  const currentDeliveryCharge =
+    items.length > 0 ? deliveryCharge : 0;
 
   const total =
-    subtotal + deliveryCharge;
+    subtotal + currentDeliveryCharge;
 
   const totalQuantity = items.reduce(
     (total, item) =>
@@ -308,7 +339,7 @@ export default function CartPageClient() {
             </span>
 
             <span className="font-semibold text-gray-900">
-              ৳{deliveryCharge}
+              ৳{currentDeliveryCharge}
             </span>
           </div>
 
