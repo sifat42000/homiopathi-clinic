@@ -19,6 +19,16 @@ type WebsiteSettingsDocument = {
 
   doctorName: string;
 
+  doctorDegree?: string;
+
+  doctorQualification?: string;
+
+  doctorRegistration?: string;
+
+  doctorPhotoUrl?: string;
+
+  doctorPhotoPublicId?: string;
+
   phone: string;
 
   whatsapp: string;
@@ -30,6 +40,10 @@ type WebsiteSettingsDocument = {
   chamberTime: string;
 
   deliveryCharge: number;
+
+  deliveryChargeInside?: number;
+
+  deliveryChargeOutside?: number;
 
   announcement: string;
 
@@ -74,6 +88,32 @@ export async function getWebsiteSettings(): Promise<WebsiteSettings> {
     doctorName:
       settings.doctorName,
 
+    doctorDegree:
+      settings.doctorDegree ??
+      "",
+
+    doctorQualification:
+      settings.doctorQualification ??
+      "",
+
+    doctorRegistration:
+      settings.doctorRegistration ??
+      "",
+
+    ...(settings.doctorPhotoUrl
+      ? {
+          doctorPhotoUrl:
+            settings.doctorPhotoUrl,
+        }
+      : {}),
+
+    ...(settings.doctorPhotoPublicId
+      ? {
+          doctorPhotoPublicId:
+            settings.doctorPhotoPublicId,
+        }
+      : {}),
+
     phone:
       settings.phone,
 
@@ -91,6 +131,14 @@ export async function getWebsiteSettings(): Promise<WebsiteSettings> {
 
     deliveryCharge:
       settings.deliveryCharge,
+
+    deliveryChargeInside:
+      settings.deliveryChargeInside ??
+      settings.deliveryCharge,
+
+    deliveryChargeOutside:
+      settings.deliveryChargeOutside ??
+      160,
 
     announcement:
       settings.announcement,
@@ -139,6 +187,23 @@ export async function saveWebsiteSettings(
         doctorName:
           settings.doctorName,
 
+        doctorDegree:
+          settings.doctorDegree,
+
+        doctorQualification:
+          settings.doctorQualification,
+
+        doctorRegistration:
+          settings.doctorRegistration,
+
+        doctorPhotoUrl:
+          settings.doctorPhotoUrl ??
+          "",
+
+        doctorPhotoPublicId:
+          settings.doctorPhotoPublicId ??
+          "",
+
         phone:
           settings.phone,
 
@@ -156,6 +221,12 @@ export async function saveWebsiteSettings(
 
         deliveryCharge:
           settings.deliveryCharge,
+
+        deliveryChargeInside:
+          settings.deliveryChargeInside,
+
+        deliveryChargeOutside:
+          settings.deliveryChargeOutside,
 
         announcement:
           settings.announcement,

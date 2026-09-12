@@ -245,3 +245,73 @@ export async function deleteCloudinaryImages(
     )
   );
 }
+
+export async function uploadDoctorImage(
+  file: File
+): Promise<ProductImage> {
+  configureCloudinary();
+
+  const bytes =
+    await file.arrayBuffer();
+
+  const buffer =
+    Buffer.from(bytes);
+
+  const result =
+    await new Promise<UploadApiResponse>(
+      (resolve, reject) => {
+        const uploadStream =
+          cloudinary.uploader.upload_stream(
+            {
+              folder:
+                "homeopathy-clinic/doctor",
+
+              resource_type:
+                "image",
+
+              unique_filename:
+                true,
+
+              overwrite:
+                false,
+            },
+            (error, response) => {
+              if (
+                error ||
+                !response
+              ) {
+                reject(
+                  error ??
+                    new Error(
+                      "Doctor image upload failed"
+                    )
+                );
+
+                return;
+              }
+
+              resolve(response);
+            }
+          );
+
+        uploadStream.end(buffer);
+      }
+    );
+
+  return {
+    publicId:
+      result.public_id,
+
+    url:
+      result.secure_url,
+
+    width:
+      result.width,
+
+    height:
+      result.height,
+
+    format:
+      result.format,
+  };
+}

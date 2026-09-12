@@ -13,6 +13,15 @@ export const DEFAULT_WEBSITE_SETTINGS: WebsiteSettings =
     doctorName:
       "Doctor Name",
 
+    doctorDegree:
+      "",
+
+    doctorQualification:
+      "",
+
+    doctorRegistration:
+      "",
+
     phone:
       "01XXXXXXXXX",
 
@@ -29,6 +38,10 @@ export const DEFAULT_WEBSITE_SETTINGS: WebsiteSettings =
       "সকাল ১০টা - রাত ৮টা",
 
     deliveryCharge: 80,
+
+    deliveryChargeInside: 80,
+
+    deliveryChargeOutside: 160,
 
     announcement:
       "",

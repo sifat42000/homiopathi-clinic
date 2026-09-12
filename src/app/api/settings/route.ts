@@ -81,13 +81,34 @@ export async function PATCH(
         body.deliveryCharge
       );
 
+    const deliveryChargeInside =
+      Number(
+        body.deliveryChargeInside ??
+          deliveryCharge
+      );
+
+    const deliveryChargeOutside =
+      Number(
+        body.deliveryChargeOutside ??
+          160
+      );
+
     if (
       !Number.isFinite(
         deliveryCharge
       ) ||
+      !Number.isFinite(
+        deliveryChargeInside
+      ) ||
+      !Number.isFinite(
+        deliveryChargeOutside
+      ) ||
       deliveryCharge < 0 ||
-      deliveryCharge >
-        10000
+      deliveryCharge > 10000 ||
+      deliveryChargeInside < 0 ||
+      deliveryChargeInside > 10000 ||
+      deliveryChargeOutside < 0 ||
+      deliveryChargeOutside > 10000
     ) {
       return NextResponse.json(
         {
@@ -128,6 +149,42 @@ export async function PATCH(
             .trim()
             .slice(0, 100),
 
+        doctorDegree:
+          String(
+            body.doctorDegree ??
+              ""
+          )
+            .trim()
+            .slice(0, 200),
+
+        doctorQualification:
+          String(
+            body.doctorQualification ??
+              ""
+          )
+            .trim()
+            .slice(0, 500),
+
+        doctorRegistration:
+          String(
+            body.doctorRegistration ??
+              ""
+          )
+            .trim()
+            .slice(0, 200),
+
+        doctorPhotoUrl:
+          String(
+            body.doctorPhotoUrl ??
+              ""
+          ).trim(),
+
+        doctorPhotoPublicId:
+          String(
+            body.doctorPhotoPublicId ??
+              ""
+          ).trim(),
+
         phone:
           String(
             body.phone ?? ""
@@ -165,7 +222,12 @@ export async function PATCH(
             .trim()
             .slice(0, 200),
 
-        deliveryCharge,
+        deliveryCharge:
+          deliveryChargeInside,
+
+        deliveryChargeInside,
+
+        deliveryChargeOutside,
 
         announcement:
           String(

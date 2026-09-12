@@ -5,6 +5,16 @@ export type WebsiteSettings = {
 
   doctorName: string;
 
+  doctorDegree: string;
+
+  doctorQualification: string;
+
+  doctorRegistration: string;
+
+  doctorPhotoUrl?: string;
+
+  doctorPhotoPublicId?: string;
+
   phone: string;
 
   whatsapp: string;
@@ -16,6 +26,10 @@ export type WebsiteSettings = {
   chamberTime: string;
 
   deliveryCharge: number;
+
+  deliveryChargeInside: number;
+
+  deliveryChargeOutside: number;
 
   announcement: string;
 

@@ -77,6 +77,19 @@ type CartValidation = {
   checkedAt: string;
 };
 
+const defaultDeliveryOptions = [
+  {
+    value: 160,
+    title: "চুয়াডাঙ্গার বাইরে",
+    description: "চুয়াডাঙ্গার বাইরের যেকোনো ঠিকানায়",
+  },
+  {
+    value: 80,
+    title: "চুয়াডাঙ্গার ভিতরে",
+    description: "চুয়াডাঙ্গা জেলার অভ্যন্তরে",
+  },
+];
+
 const divisions = [
   "ঢাকা",
   "চট্টগ্রাম",
@@ -121,8 +134,67 @@ export default function CheckoutClient() {
     setSubmitting,
   ] = useState(false);
 
+  const [
+    selectedDeliveryCharge,
+    setSelectedDeliveryCharge,
+  ] = useState<number | null>(null);
+
+  const [
+    deliveryOptions,
+    setDeliveryOptions,
+  ] = useState(defaultDeliveryOptions);
+
   const [error, setError] =
     useState("");
+
+  useEffect(() => {
+    const loadDeliveryOptions = async () => {
+      try {
+        const response = await fetch(
+          "/api/settings",
+          {
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        const inside = Number(
+          data.settings?.deliveryChargeInside
+        );
+        const outside = Number(
+          data.settings?.deliveryChargeOutside
+        );
+
+        if (
+          Number.isFinite(inside) &&
+          Number.isFinite(outside)
+        ) {
+          setDeliveryOptions([
+            {
+              value: outside,
+              title: "চুয়াডাঙ্গার বাইরে",
+              description:
+                `চুয়াডাঙ্গার বাইরের যেকোনো ঠিকানায় • ৳${outside}`,
+            },
+            {
+              value: inside,
+              title: "চুয়াডাঙ্গার ভিতরে",
+              description:
+                `চুয়াডাঙ্গা জেলার অভ্যন্তরে • ৳${inside}`,
+            },
+          ]);
+        }
+      } catch {
+        // Keep the default charges when settings cannot be loaded.
+      }
+    };
+
+    loadDeliveryOptions();
+  }, []);
 
   const validateCart =
     useCallback(
@@ -246,6 +318,14 @@ export default function CheckoutClient() {
 
     setError("");
 
+    if (selectedDeliveryCharge === null) {
+      setError(
+        "Delivery Charge-এর একটি option নির্বাচন করুন।"
+      );
+
+      return;
+    }
+
     if (
       items.length === 0
     ) {
@@ -359,6 +439,9 @@ export default function CheckoutClient() {
             "orderNote"
           ) ?? ""
         ).trim(),
+
+      deliveryCharge:
+        selectedDeliveryCharge,
 
       /*
         Price পাঠানো হচ্ছে না।
@@ -614,6 +697,67 @@ export default function CheckoutClient() {
               className="ml-auto text-green-600"
             />
           </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {deliveryOptions.map((option) => {
+              const selected =
+                selectedDeliveryCharge === option.value;
+
+              return (
+                <label
+                  key={option.value}
+                  className={`group relative flex cursor-pointer items-center justify-between gap-4 rounded-2xl border p-4 transition ${
+                    selected
+                      ? "border-[#14532D] bg-white shadow-md ring-2 ring-[#14532D]/10"
+                      : "border-green-200 bg-white/70 hover:border-green-400 hover:bg-white"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="deliveryCharge"
+                    value={option.value}
+                    required
+                    checked={selected}
+                    onChange={() =>
+                      setSelectedDeliveryCharge(option.value)
+                    }
+                    className="sr-only"
+                  />
+
+                  <span>
+                    <span className="block font-semibold text-gray-900">
+                      {option.title}
+                    </span>
+
+                    <span className="mt-1 block text-xs leading-5 text-gray-500">
+                      {option.description}
+                    </span>
+                  </span>
+
+                  <span
+                    className={`flex h-6 w-11 shrink-0 items-center rounded-full p-1 transition ${
+                      selected
+                        ? "bg-[#14532D]"
+                        : "bg-gray-300"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    <span
+                      className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                        selected
+                          ? "translate-x-5"
+                          : "translate-x-0"
+                      }`}
+                    />
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+
+          <p className="mt-3 text-xs text-green-800">
+            Delivery location অনুযায়ী একটি option নির্বাচন করুন।
+          </p>
         </section>
 
         {error && (
@@ -634,7 +778,8 @@ export default function CheckoutClient() {
           disabled={
             submitting ||
             syncing ||
-            !validation?.valid
+            !validation?.valid ||
+            selectedDeliveryCharge === null
           }
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532D] px-6 py-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -773,9 +918,8 @@ export default function CheckoutClient() {
 
                   <span>
                     ৳
-                    {
-                      validation.deliveryCharge
-                    }
+                    {selectedDeliveryCharge ??
+                      validation.deliveryCharge}
                   </span>
                 </div>
 
@@ -786,9 +930,9 @@ export default function CheckoutClient() {
 
                   <span className="text-[#14532D]">
                     ৳
-                    {
-                      validation.total
-                    }
+                    {validation.subtotal +
+                      (selectedDeliveryCharge ??
+                        validation.deliveryCharge)}
                   </span>
                 </div>
               </div>

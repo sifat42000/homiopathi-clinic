@@ -213,7 +213,20 @@ export async function POST(
     }
 
     const deliveryCharge =
-      websiteSettings.deliveryCharge;
+      Number(body.deliveryCharge);
+
+    if (
+      ![
+        websiteSettings.deliveryChargeInside,
+        websiteSettings.deliveryChargeOutside,
+      ].includes(
+        deliveryCharge
+      )
+    ) {
+      throw new OrderRequestError(
+        "সঠিক Delivery Charge option নির্বাচন করুন।"
+      );
+    }
 
     /* =========================
        CUSTOMER

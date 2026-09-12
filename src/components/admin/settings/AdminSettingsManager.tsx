@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChangeEvent,
   FormEvent,
   useCallback,
   useEffect,
@@ -15,7 +16,11 @@ import {
   Settings2,
   Stethoscope,
   Store,
+  ImagePlus,
+  X,
 } from "lucide-react";
+
+import Image from "next/image";
 
 import type {
   WebsiteSettings,
@@ -29,6 +34,12 @@ const emptySettings: WebsiteSettings =
 
     doctorName: "",
 
+    doctorDegree: "",
+
+    doctorQualification: "",
+
+    doctorRegistration: "",
+
     phone: "",
 
     whatsapp: "",
@@ -40,6 +51,10 @@ const emptySettings: WebsiteSettings =
     chamberTime: "",
 
     deliveryCharge: 80,
+
+    deliveryChargeInside: 80,
+
+    deliveryChargeOutside: 160,
 
     announcement: "",
 
@@ -72,6 +87,15 @@ export default function AdminSettingsManager() {
   const [success, setSuccess] =
     useState("");
 
+  const [doctorPhotoFile, setDoctorPhotoFile] =
+    useState<File | null>(null);
+
+  const [doctorPhotoPreview, setDoctorPhotoPreview] =
+    useState("");
+
+  const [removeDoctorPhoto, setRemoveDoctorPhoto] =
+    useState(false);
+
   const loadSettings =
     useCallback(async () => {
       try {
@@ -98,6 +122,13 @@ export default function AdminSettingsManager() {
         setSettings(
           data.settings
         );
+
+        if (!doctorPhotoFile) {
+          setDoctorPhotoPreview(
+            data.settings.doctorPhotoUrl ??
+              ""
+          );
+        }
       } catch (error) {
         setError(
           error instanceof Error
@@ -129,11 +160,60 @@ export default function AdminSettingsManager() {
     );
   };
 
+  const handleDoctorPhotoChange = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (
+      ![
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ].includes(file.type)
+    ) {
+      setError(
+        "শুধু JPG, PNG অথবা WEBP Image ব্যবহার করুন।"
+      );
+
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError(
+        "Doctor Image সর্বোচ্চ 5MB হতে পারবে।"
+      );
+
+      return;
+    }
+
+    setError("");
+    setDoctorPhotoFile(file);
+    setDoctorPhotoPreview(
+      URL.createObjectURL(file)
+    );
+    setRemoveDoctorPhoto(false);
+  };
+
   const handleSubmit = async (
     event:
       FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
+
+    const previousPhotoPublicId =
+      settings.doctorPhotoPublicId;
+
+    let uploadedDoctorPhoto:
+      | {
+          url: string;
+          publicId: string;
+        }
+      | null = null;
 
     try {
       setSaving(true);
@@ -141,6 +221,54 @@ export default function AdminSettingsManager() {
       setError("");
 
       setSuccess("");
+
+      if (doctorPhotoFile) {
+        const imageFormData =
+          new FormData();
+
+        imageFormData.append(
+          "image",
+          doctorPhotoFile
+        );
+
+        const uploadResponse =
+          await fetch(
+            "/api/uploads/doctor",
+            {
+              method: "POST",
+              body: imageFormData,
+            }
+          );
+
+        const uploadData =
+          await uploadResponse.json();
+
+        if (!uploadResponse.ok) {
+          throw new Error(
+            uploadData.message ||
+              "Doctor Image Upload করা যায়নি।"
+          );
+        }
+
+        uploadedDoctorPhoto =
+          uploadData.image;
+      }
+
+      const settingsPayload = {
+        ...settings,
+        doctorPhotoUrl:
+          removeDoctorPhoto
+            ? ""
+            : uploadedDoctorPhoto?.url ??
+              settings.doctorPhotoUrl ??
+              "",
+        doctorPhotoPublicId:
+          removeDoctorPhoto
+            ? ""
+            : uploadedDoctorPhoto?.publicId ??
+              settings.doctorPhotoPublicId ??
+              "",
+      };
 
       const response =
         await fetch(
@@ -155,7 +283,7 @@ export default function AdminSettingsManager() {
 
             body:
               JSON.stringify(
-                settings
+                settingsPayload
               ),
           }
         );
@@ -164,14 +292,55 @@ export default function AdminSettingsManager() {
         await response.json();
 
       if (!response.ok) {
+        if (uploadedDoctorPhoto) {
+          await fetch(
+            "/api/uploads/doctor",
+            {
+              method: "DELETE",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                publicId:
+                  uploadedDoctorPhoto.publicId,
+              }),
+            }
+          );
+        }
+
         throw new Error(
           data.message
+        );
+      }
+
+      if (
+        previousPhotoPublicId &&
+        (uploadedDoctorPhoto ||
+          removeDoctorPhoto)
+      ) {
+        await fetch(
+          "/api/uploads/doctor",
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              publicId:
+                previousPhotoPublicId,
+            }),
+          }
         );
       }
 
       setSuccess(
         "Website Settings সফলভাবে Save হয়েছে।"
       );
+
+      setDoctorPhotoFile(null);
+      setRemoveDoctorPhoto(false);
 
       await loadSettings();
     } catch (error) {
@@ -262,20 +431,6 @@ export default function AdminSettingsManager() {
 
             <input
               value={
-                settings.doctorName
-              }
-              onChange={(e) =>
-                updateField(
-                  "doctorName",
-                  e.target.value
-                )
-              }
-              placeholder="Doctor Name"
-              className="rounded-xl border border-gray-200 px-4 py-3"
-            />
-
-            <input
-              value={
                 settings.phone
               }
               onChange={(e) =>
@@ -348,6 +503,149 @@ export default function AdminSettingsManager() {
           </div>
         </section>
 
+        {/* Doctor Profile */}
+        <section className="rounded-[26px] border border-green-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Stethoscope
+              size={21}
+              className="text-[#14532D]"
+            />
+
+            <h2 className="text-xl font-bold">
+              Doctor Profile
+            </h2>
+          </div>
+
+          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                ডাক্তারের নাম
+              </label>
+
+              <input
+                value={settings.doctorName}
+                onChange={(e) =>
+                  updateField(
+                    "doctorName",
+                    e.target.value
+                  )
+                }
+                placeholder="ডা. আপনার নাম"
+                className="w-full rounded-xl border border-gray-200 px-4 py-3"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Degree
+              </label>
+
+              <input
+                value={settings.doctorDegree}
+                onChange={(e) =>
+                  updateField(
+                    "doctorDegree",
+                    e.target.value
+                  )
+                }
+                placeholder="DHMS / BHMS"
+                className="w-full rounded-xl border border-gray-200 px-4 py-3"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Professional Qualification
+              </label>
+
+              <textarea
+                rows={3}
+                value={settings.doctorQualification}
+                onChange={(e) =>
+                  updateField(
+                    "doctorQualification",
+                    e.target.value
+                  )
+                }
+                placeholder="ডাক্তারের যোগ্যতা ও অভিজ্ঞতা"
+                className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Registration Information
+              </label>
+
+              <input
+                value={settings.doctorRegistration}
+                onChange={(e) =>
+                  updateField(
+                    "doctorRegistration",
+                    e.target.value
+                  )
+                }
+                placeholder="Registration No."
+                className="w-full rounded-xl border border-gray-200 px-4 py-3"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <p className="mb-2 text-sm font-semibold text-gray-700">
+                Professional Portrait Photo
+              </p>
+
+              {doctorPhotoPreview && !removeDoctorPhoto ? (
+                <div className="relative h-64 w-full max-w-xs overflow-hidden rounded-2xl border border-green-100 bg-green-50">
+                  <Image
+                    src={doctorPhotoPreview}
+                    alt="Doctor portrait preview"
+                    fill
+                    unoptimized={doctorPhotoPreview.startsWith("blob:")}
+                    className="object-cover"
+                    sizes="320px"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDoctorPhotoFile(null);
+                      setDoctorPhotoPreview("");
+                      setRemoveDoctorPhoto(true);
+                    }}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-white text-red-500 shadow"
+                    title="Photo remove করুন"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex max-w-xs cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-[#FAFAF7] px-5 py-10 text-center hover:border-green-300">
+                  <ImagePlus
+                    size={30}
+                    className="text-[#14532D]"
+                  />
+
+                  <span className="mt-2 text-sm font-semibold text-gray-700">
+                    Professional Photo Upload
+                  </span>
+
+                  <span className="mt-1 text-xs text-gray-400">
+                    JPG, PNG, WEBP • Max 5MB
+                  </span>
+
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleDoctorPhotoChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+        </section>
+
         {/* Shop */}
         <section className="rounded-[26px] border border-gray-100 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-2">
@@ -362,26 +660,61 @@ export default function AdminSettingsManager() {
           </div>
 
           <div className="mt-6">
-            <label className="text-sm font-semibold">
+            <p className="text-sm font-semibold">
               Delivery Charge
-            </label>
+            </p>
 
-            <input
-              type="number"
-              min="0"
-              value={
-                settings.deliveryCharge
-              }
-              onChange={(e) =>
-                updateField(
-                  "deliveryCharge",
-                  Number(
-                    e.target.value
-                  )
-                )
-              }
-              className="font-english mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 sm:max-w-xs"
-            />
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm text-gray-600">
+                  চুয়াডাঙ্গার ভিতরে
+                </span>
+
+                <input
+                  type="number"
+                  min="0"
+                  value={
+                    settings.deliveryChargeInside
+                  }
+                  onChange={(e) =>
+                    updateField(
+                      "deliveryChargeInside",
+                      Number(
+                        e.target.value
+                      )
+                    )
+                  }
+                  className="font-english mt-2 w-full rounded-xl border border-gray-200 px-4 py-3"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm text-gray-600">
+                  চুয়াডাঙ্গার বাইরে
+                </span>
+
+                <input
+                  type="number"
+                  min="0"
+                  value={
+                    settings.deliveryChargeOutside
+                  }
+                  onChange={(e) =>
+                    updateField(
+                      "deliveryChargeOutside",
+                      Number(
+                        e.target.value
+                      )
+                    )
+                  }
+                  className="font-english mt-2 w-full rounded-xl border border-gray-200 px-4 py-3"
+                />
+              </label>
+            </div>
+
+            <p className="mt-2 text-xs text-gray-500">
+              Checkout পেইজে customer এই দুইটি charge option দেখতে পাবেন।
+            </p>
           </div>
 
           <label className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-[#F7FBF8] p-4">

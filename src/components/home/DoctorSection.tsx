@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Award,
@@ -36,25 +37,34 @@ export default function DoctorSection() {
 
                 <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[#CDEBD5]/60" />
 
-                {/* Temporary Doctor Placeholder */}
-                <div className="relative z-10 flex flex-col items-center px-6 text-center">
-                  <div className="flex h-32 w-32 items-center justify-center rounded-full bg-white shadow-xl">
-                    <Stethoscope
-                      size={58}
-                      strokeWidth={1.4}
-                      className="text-[#14532D]"
-                    />
+                {settings.doctorPhotoUrl ? (
+                  <Image
+                    src={settings.doctorPhotoUrl}
+                    alt={settings.doctorName}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 500px"
+                  />
+                ) : (
+                  <div className="relative z-10 flex flex-col items-center px-6 text-center">
+                    <div className="flex h-32 w-32 items-center justify-center rounded-full bg-white shadow-xl">
+                      <Stethoscope
+                        size={58}
+                        strokeWidth={1.4}
+                        className="text-[#14532D]"
+                      />
+                    </div>
+
+                    <p className="mt-6 text-2xl font-bold text-[#14532D]">
+                      ডাক্তারের ছবি
+                    </p>
+
+                    <p className="mt-2 max-w-[280px] text-sm leading-6 text-gray-500">
+                      Professional Portrait Photo এখানে প্রদর্শিত হবে।
+                    </p>
                   </div>
-
-                  <p className="mt-6 text-2xl font-bold text-[#14532D]">
-                    ডাক্তারের ছবি
-                  </p>
-
-                  <p className="mt-2 max-w-[280px] text-sm leading-6 text-gray-500">
-                    পরে এখানে ডাক্তারের একটি Professional Portrait Photo
-                    ব্যবহার করা হবে।
-                  </p>
-                </div>
+                )}
               </div>
             </div>
 
@@ -74,7 +84,14 @@ export default function DoctorSection() {
                   </p>
 
                   <p className="mt-1 text-xs leading-5 text-gray-500">
-                    ডিগ্রি, যোগ্যতা ও রেজিস্ট্রেশন তথ্য এখানে প্রদর্শিত হবে।
+                    {settings.doctorDegree ||
+                      "ডিগ্রি"}
+                    {settings.doctorQualification
+                      ? ` • ${settings.doctorQualification}`
+                      : " • Professional Qualification"}
+                    {settings.doctorRegistration
+                      ? ` • ${settings.doctorRegistration}`
+                      : " • Registration Information"}
                   </p>
                 </div>
               </div>
@@ -97,7 +114,8 @@ export default function DoctorSection() {
               </h3>
 
               <p className="mt-1 text-sm font-medium text-[#15803D]">
-                হোমিওপ্যাথিক চিকিৎসক
+                {settings.doctorDegree ||
+                  "হোমিওপ্যাথিক চিকিৎসক"}
               </p>
             </div>
 
@@ -115,8 +133,8 @@ export default function DoctorSection() {
                   </p>
 
                   <p className="mt-1 text-sm leading-6 text-gray-500">
-                    ডাক্তারের প্রকৃত ডিগ্রি ও Professional Qualification এখানে
-                    থাকবে।
+                    {settings.doctorQualification ||
+                      "ডাক্তারের Professional Qualification এখানে প্রদর্শিত হবে।"}
                   </p>
                 </div>
               </div>
@@ -133,7 +151,8 @@ export default function DoctorSection() {
                   </p>
 
                   <p className="mt-1 text-sm leading-6 text-gray-500">
-                    Professional Registration Number এখানে দেওয়া হবে।
+                    {settings.doctorRegistration ||
+                      "Professional Registration Number এখানে প্রদর্শিত হবে।"}
                   </p>
                 </div>
               </div>
