@@ -31,6 +31,9 @@ import { authClient } from "@/lib/auth-client";
 import {
   useWebsiteSettings,
 } from "@/components/layout/WebsiteSettingsProvider";
+import {
+  useBodyScrollLock,
+} from "@/lib/use-body-scroll-lock";
 
 type AdminShellProps = {
   children: ReactNode;
@@ -110,6 +113,8 @@ export default function AdminShell({
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
 
+  useBodyScrollLock(sidebarOpen);
+
   const {
     data: session,
   } = authClient.useSession();
@@ -143,7 +148,7 @@ export default function AdminShell({
           Sidebar
       ====================== */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-gray-100 bg-white transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col overflow-hidden border-r border-gray-100 bg-white transition-transform duration-300 lg:translate-x-0 ${
           sidebarOpen
             ? "translate-x-0"
             : "-translate-x-full"

@@ -34,6 +34,9 @@ import {
 import {
   useWebsiteSettings,
 } from "@/components/layout/WebsiteSettingsProvider";
+import {
+  useBodyScrollLock,
+} from "@/lib/use-body-scroll-lock";
 
 const navItems = [
   {
@@ -116,6 +119,8 @@ export default function Header() {
     mobileOpen,
     setMobileOpen,
   ] = useState(false);
+
+  useBodyScrollLock(mobileOpen);
 
   const items =
     useCartStore(
@@ -500,7 +505,7 @@ export default function Header() {
       ===================== */}
 
       {mobileOpen && (
-        <div className="border-t border-gray-100 bg-white px-4 py-5 md:hidden">
+        <div className="max-h-[calc(100dvh-72px)] overflow-y-auto border-t border-gray-100 bg-white px-4 py-5 md:hidden">
           <nav className="space-y-1">
             {navItems.map(
               (item) => (

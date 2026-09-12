@@ -7,11 +7,16 @@ import { navItems } from "@/data/navigation";
 import {
   useWebsiteSettings,
 } from "@/components/layout/WebsiteSettingsProvider";
+import {
+  useBodyScrollLock,
+} from "@/lib/use-body-scroll-lock";
 
 export default function MobileMenu() {
   const settings = useWebsiteSettings();
 
   const [isOpen, setIsOpen] = useState(false);
+
+  useBodyScrollLock(isOpen);
 
   const closeMenu = () => {
     setIsOpen(false);
@@ -31,7 +36,7 @@ export default function MobileMenu() {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="fixed inset-0 z-[100] bg-white lg:hidden">
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-white lg:hidden">
           {/* Mobile Menu Header */}
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
             <Link href="/" onClick={closeMenu}>
