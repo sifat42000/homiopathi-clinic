@@ -11,6 +11,11 @@ import HealthTipsSection from "@/components/home/HealthTipsSection";
 import FAQSection from "@/components/home/FAQSection";
 import FinalCTASection from "@/components/home/FinalCTASection";
 
+export const dynamic =
+  "force-dynamic";
+
+export const revalidate = 0;
+
 export default function HomePage() {
   return (
     <PublicLayout>
