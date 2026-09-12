@@ -7,10 +7,10 @@ import {
 import type {
   DatabaseReview,
 } from "@/types/review";
+import type { Review } from "@/data/reviews";
 
 type ReviewCardProps = {
-  review:
-    DatabaseReview;
+  review: DatabaseReview | Review;
 };
 
 export default function ReviewCard({
@@ -41,7 +41,7 @@ export default function ReviewCard({
         “{review.review}”
       </p>
 
-      {review.image && (
+      {"image" in review && review.image && (
         <div className="relative mt-5 aspect-[16/10] overflow-hidden rounded-2xl bg-gray-50">
           <Image
             src={

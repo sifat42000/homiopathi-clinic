@@ -251,7 +251,10 @@ export async function POST(
         )
         .filter(
           (
-            section
+            section: {
+              heading: string;
+              content: string;
+            } | null
           ): section is {
             heading: string;
             content: string;

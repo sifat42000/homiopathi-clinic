@@ -105,7 +105,9 @@ export default function LoginForm() {
       }
 
       const role =
-        data.user.role;
+        (data.user as typeof data.user & {
+          role?: string;
+        }).role;
 
       const isAdmin =
         typeof role === "string" &&

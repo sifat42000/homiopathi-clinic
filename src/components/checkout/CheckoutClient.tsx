@@ -238,6 +238,12 @@ export default function CheckoutClient() {
   ) => {
     event.preventDefault();
 
+    const form =
+      event.currentTarget;
+
+    const formData =
+      new FormData(form);
+
     setError("");
 
     if (
@@ -292,12 +298,6 @@ export default function CheckoutClient() {
 
       return;
     }
-
-    const form =
-      event.currentTarget;
-
-    const formData =
-      new FormData(form);
 
     const payload = {
       customer: {

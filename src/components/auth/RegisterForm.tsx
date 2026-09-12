@@ -133,12 +133,14 @@ export default function RegisterForm() {
           authError,
       } =
         await authClient.signUp.email(
-          {
+          ({
             name,
             email,
             password,
             phone,
-          }
+          } as unknown as Parameters<
+            typeof authClient.signUp.email
+          >[0])
         );
 
       if (authError) {

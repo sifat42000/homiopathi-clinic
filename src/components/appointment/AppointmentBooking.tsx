@@ -52,7 +52,13 @@ function getLocalDateString() {
   return `${year}-${month}-${day}`;
 }
 
-export default function AppointmentBooking() {
+type AppointmentBookingProps = {
+  initialTreatmentSlug?: string;
+};
+
+export default function AppointmentBooking({
+  initialTreatmentSlug,
+}: AppointmentBookingProps) {
   const router =
     useRouter();
 
@@ -142,9 +148,8 @@ export default function AppointmentBooking() {
           );
 
           const requested =
-            searchParams.get(
-              "treatment"
-            );
+            initialTreatmentSlug ??
+            searchParams.get("treatment");
 
           const requestedExists =
             bookable.some(

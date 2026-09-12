@@ -186,13 +186,11 @@ export default function OrderSuccessClient() {
 
           <div className="mt-6 space-y-5">
             {lastOrder.items.map((item) => {
-              const price =
-                item.salePrice ??
-                item.regularPrice;
+              const price = item.unitPrice;
 
               return (
                 <div
-                  key={item.id}
+                  key={item.productId}
                   className="flex gap-4 border-b border-gray-100 pb-5 last:border-0 last:pb-0"
                 >
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[#EEF8F0]">
@@ -204,7 +202,7 @@ export default function OrderSuccessClient() {
 
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-gray-900">
-                      {item.name}
+                      {item.productName}
                     </p>
 
                     <p className="font-english mt-1 text-xs text-gray-400">
