@@ -290,7 +290,7 @@ export default function ProductDetails({
             }`}
           >
             {product.stock > 0
-              ? `${product.stock} টি Stock Available`
+              ? "In Stock"
               : "বর্তমানে Stock নেই"}
           </p>
         </div>

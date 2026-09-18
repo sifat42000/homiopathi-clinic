@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   CalendarDays,
@@ -9,7 +12,13 @@ import {
   Stethoscope,
 } from "lucide-react";
 
+import {
+  useWebsiteSettings,
+} from "@/components/layout/WebsiteSettingsProvider";
+
 export default function Hero() {
+  const settings = useWebsiteSettings();
+
   return (
     <section className="relative overflow-hidden bg-[#FAFAF7]">
       {/* Decorative Background */}
@@ -111,24 +120,34 @@ export default function Hero() {
 
               <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-[#CDEBD5]/60" />
 
-              {/* Placeholder */}
-              <div className="relative z-10 flex flex-col items-center px-6 text-center">
-                <div className="flex h-28 w-28 items-center justify-center rounded-full bg-white shadow-lg">
-                  <Stethoscope
-                    size={52}
-                    strokeWidth={1.5}
-                    className="text-[#14532D]"
-                  />
+              {settings.doctorPhotoUrl ? (
+                <Image
+                  src={settings.doctorPhotoUrl}
+                  alt={settings.doctorName || "Doctor portrait"}
+                  fill
+                  unoptimized
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 520px"
+                />
+              ) : (
+                <div className="relative z-10 flex flex-col items-center px-6 text-center">
+                  <div className="flex h-28 w-28 items-center justify-center rounded-full bg-white shadow-lg">
+                    <Stethoscope
+                      size={52}
+                      strokeWidth={1.5}
+                      className="text-[#14532D]"
+                    />
+                  </div>
+
+                  <p className="mt-5 text-xl font-semibold text-[#14532D]">
+                    ডাক্তারের ছবি
+                  </p>
+
+                  <p className="mt-2 max-w-[250px] text-sm leading-6 text-gray-500">
+                    Professional Portrait Photo এখানে প্রদর্শিত হবে
+                  </p>
                 </div>
-
-                <p className="mt-5 text-xl font-semibold text-[#14532D]">
-                  ডাক্তারের ছবি
-                </p>
-
-                <p className="mt-2 max-w-[250px] text-sm leading-6 text-gray-500">
-                  পরবর্তীতে এখানে ডাক্তারের Professional Photo ব্যবহার করব
-                </p>
-              </div>
+              )}
             </div>
           </div>
 
@@ -141,11 +160,16 @@ export default function Hero() {
 
               <div>
                 <p className="font-semibold text-gray-900">
-                  ডাক্তারের নাম এখানে থাকবে
+                  {settings.doctorName || "ডাক্তারের নাম এখানে থাকবে"}
                 </p>
 
                 <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-                  ডিগ্রি • যোগ্যতা • রেজিস্ট্রেশন তথ্য
+                  {[
+                    settings.doctorDegree,
+                    settings.doctorQualification,
+                  ]
+                    .filter(Boolean)
+                    .join(" • ") || "ডিগ্রি • যোগ্যতা"}
                 </p>
               </div>
             </div>

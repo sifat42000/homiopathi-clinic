@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
-  Award,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -89,9 +88,6 @@ export default function DoctorSection() {
                     {settings.doctorQualification
                       ? ` • ${settings.doctorQualification}`
                       : " • Professional Qualification"}
-                    {settings.doctorRegistration
-                      ? ` • ${settings.doctorRegistration}`
-                      : " • Registration Information"}
                   </p>
                 </div>
               </div>
@@ -139,23 +135,6 @@ export default function DoctorSection() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <Award
-                  size={21}
-                  className="mt-0.5 shrink-0 text-[#14532D]"
-                />
-
-                <div>
-                  <p className="font-semibold text-gray-800">
-                    রেজিস্ট্রেশন
-                  </p>
-
-                  <p className="mt-1 text-sm leading-6 text-gray-500">
-                    {settings.doctorRegistration ||
-                      "Professional Registration Number এখানে প্রদর্শিত হবে।"}
-                  </p>
-                </div>
-              </div>
             </div>
 
             {/* Trust Grid */}

@@ -236,7 +236,7 @@ export default function ProductCard({
           }`}
         >
           {product.stock > 0
-            ? `Stock: ${product.stock}`
+            ? "In Stock"
             : "Out of Stock"}
         </p>
 
