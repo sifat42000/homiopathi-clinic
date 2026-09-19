@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import {
   ArrowRight,
   CalendarDays,
@@ -109,45 +108,54 @@ export default function Hero() {
         {/* Right Side */}
         <div className="relative mx-auto w-full max-w-[520px]">
           
-          {/* Main Doctor Card */}
+          {/* Service Overview */}
           <div className="relative overflow-hidden rounded-[32px] border border-green-100 bg-white p-4 shadow-[0_20px_70px_rgba(20,83,45,0.12)] sm:p-6">
-            
-            {/* Doctor Photo Placeholder */}
-            <div className="relative flex min-h-[460px] items-center justify-center overflow-hidden rounded-[26px] bg-gradient-to-br from-[#E8F5EB] via-[#F4FBF5] to-[#DDF3E3] sm:min-h-[520px]">
-              
-              {/* Decorative Circle */}
+            <div className="relative min-h-[460px] overflow-hidden rounded-[26px] bg-gradient-to-br from-[#E8F5EB] via-[#F4FBF5] to-[#DDF3E3] p-7 sm:min-h-[520px] sm:p-10">
               <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/60" />
 
               <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-[#CDEBD5]/60" />
 
-              {settings.doctorPhotoUrl ? (
-                <Image
-                  src={settings.doctorPhotoUrl}
-                  alt={settings.doctorName || "Doctor portrait"}
-                  fill
-                  unoptimized
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 520px"
-                />
-              ) : (
-                <div className="relative z-10 flex flex-col items-center px-6 text-center">
-                  <div className="flex h-28 w-28 items-center justify-center rounded-full bg-white shadow-lg">
-                    <Stethoscope
-                      size={52}
-                      strokeWidth={1.5}
-                      className="text-[#14532D]"
-                    />
+              <div className="relative z-10 flex h-full min-h-[400px] flex-col justify-between sm:min-h-[440px]">
+                <div>
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-[#14532D] shadow-lg">
+                    <CalendarDays size={31} />
                   </div>
 
-                  <p className="mt-5 text-xl font-semibold text-[#14532D]">
-                    ডাক্তারের ছবি
+                  <p className="mt-8 max-w-sm text-3xl font-bold leading-tight text-[#14532D] sm:text-4xl">
+                    আপনার সুস্থতার যাত্রা শুরু হোক আজই
                   </p>
 
-                  <p className="mt-2 max-w-[250px] text-sm leading-6 text-gray-500">
-                    Professional Portrait Photo এখানে প্রদর্শিত হবে
+                  <p className="mt-4 max-w-sm text-sm leading-7 text-gray-600 sm:text-base">
+                    চিকিৎসকের পরামর্শ, সহজ Appointment এবং প্রয়োজনীয় সহায়তা—সবকিছু এক জায়গায়।
                   </p>
                 </div>
-              )}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+                    <Clock3 size={21} className="text-[#14532D]" />
+
+                    <p className="mt-3 text-sm font-semibold text-gray-800">
+                      সুবিধাজনক সময়
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                      আপনার সময় অনুযায়ী বুকিং
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+                    <ShieldCheck size={21} className="text-[#14532D]" />
+
+                    <p className="mt-3 text-sm font-semibold text-gray-800">
+                      বিশ্বস্ত সেবা
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-gray-500">
+                      যত্নশীল স্বাস্থ্য পরামর্শ
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

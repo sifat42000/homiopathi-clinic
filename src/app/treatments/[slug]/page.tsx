@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import {
   ArrowLeft,
@@ -16,6 +17,10 @@ import PublicLayout from "@/components/layout/PublicLayout";
 import {
   getTreatmentBySlug,
 } from "@/lib/db/treatments";
+import {
+  createPageMetadata,
+  siteUrl,
+} from "@/lib/seo";
 
 type Props = {
   params: Promise<{
@@ -25,6 +30,37 @@ type Props = {
 
 export const dynamic =
   "force-dynamic";
+
+export const revalidate = 0;
+
+export async function generateMetadata({
+  params,
+}: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const treatment = await getTreatmentBySlug(slug);
+
+  if (!treatment) {
+    return {
+      title: "Treatment Not Found",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  return createPageMetadata({
+    title: treatment.title,
+    description: treatment.description,
+    path: `/treatments/${encodeURIComponent(treatment.slug)}`,
+    keywords: [
+      treatment.title,
+      treatment.englishTitle,
+      "হোমিওপ্যাথিক consultation",
+      "হোমিওপ্যাথিক চিকিৎসা সেবা",
+    ],
+  });
+}
 
 export default async function TreatmentDetailsPage({
   params,
@@ -43,6 +79,34 @@ export default async function TreatmentDetailsPage({
 
   return (
     <PublicLayout>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Service",
+            name: treatment.title,
+            description: treatment.description,
+            serviceType: treatment.englishTitle,
+            provider: {
+              "@type": "MedicalClinic",
+              "@id": `${siteUrl}/#clinic`,
+              name: "Homeopathy Clinic",
+              url: siteUrl,
+            },
+            offers: {
+              "@type": "Offer",
+              url: `${siteUrl}/treatments/${encodeURIComponent(treatment.slug)}`,
+              priceCurrency: "BDT",
+              price: treatment.fee,
+              availability: treatment.availability === "available"
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+            },
+          }),
+        }}
+      />
+
       <section className="bg-[#F7FBF8] py-14 sm:py-20">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
           <Link

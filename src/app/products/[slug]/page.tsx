@@ -17,6 +17,10 @@ import {
   getProductBySlug,
   getRelatedProducts,
 } from "@/lib/db/products";
+import {
+  createPageMetadata,
+  siteUrl,
+} from "@/lib/seo";
 
 type ProductPageProps = {
   params: Promise<{
@@ -49,17 +53,26 @@ export async function generateMetadata({
 
   if (!product) {
     return {
-      title:
-        "Product Not Found",
+      title: "Product Not Found",
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
-  return {
-    title: `${product.name} | Homeopathy Clinic`,
-
+  return createPageMetadata({
+    title: product.name,
     description:
       product.shortDescription,
-  };
+    path: `/products/${encodeURIComponent(product.slug)}`,
+    keywords: [
+      product.name,
+      product.englishName,
+      product.category,
+      "হোমিওপ্যাথিক প্রোডাক্ট",
+    ],
+  });
 }
 
 export default async function ProductDetailPage({
@@ -96,6 +109,42 @@ export default async function ProductDetailPage({
 
   return (
     <PublicLayout>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: product.name,
+            description: product.shortDescription,
+            sku: product.sku,
+            category: product.category,
+            image: product.images
+              .map((image) => image.url)
+              .filter(Boolean),
+            brand: {
+              "@type": "Brand",
+              name: "Homeopathy Clinic",
+            },
+            offers: {
+              "@type": "Offer",
+              url: `${siteUrl}/products/${encodeURIComponent(product.slug)}`,
+              priceCurrency: "BDT",
+              price: product.discountEnabled && product.discountPrice
+                ? product.discountPrice
+                : product.salePrice ?? product.regularPrice,
+              availability: product.stock > 0
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+              seller: {
+                "@type": "Organization",
+                name: "Homeopathy Clinic",
+              },
+            },
+          }),
+        }}
+      />
+
       {/* Breadcrumb */}
       <section className="border-b border-gray-100 bg-[#F7FBF8]">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">

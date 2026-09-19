@@ -2,6 +2,7 @@ import type {
   ReactNode,
 } from "react";
 
+
 import {
   headers,
 } from "next/headers";
@@ -15,6 +16,9 @@ import AdminShell from "@/components/admin/AdminShell";
 import {
   auth,
 } from "@/lib/auth";
+import { privateMetadata } from "@/lib/seo";
+
+export const metadata = privateMetadata;
 
 type AdminLayoutProps = {
   children: ReactNode;

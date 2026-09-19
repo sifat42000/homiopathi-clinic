@@ -21,6 +21,10 @@ import {
   getHealthTipBySlug,
   getRelatedHealthTips,
 } from "@/lib/db/health-tips";
+import {
+  createPageMetadata,
+  siteUrl,
+} from "@/lib/seo";
 
 type Props = {
   params: Promise<{
@@ -46,17 +50,26 @@ export async function generateMetadata({
 
   if (!tip) {
     return {
-      title:
-        "Article Not Found",
+      title: "Article Not Found",
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
-  return {
-    title: `${tip.title} | Homeopathy Clinic`,
-
+  return createPageMetadata({
+    title: tip.title,
     description:
       tip.excerpt,
-  };
+    path: `/health-tips/${encodeURIComponent(tip.slug)}`,
+    keywords: [
+      tip.title,
+      tip.category,
+      "স্বাস্থ্য সচেতনতা",
+      "হোমিওপ্যাথি স্বাস্থ্য টিপস",
+    ],
+  });
 }
 
 export default async function HealthTipDetailsPage({
@@ -81,6 +94,33 @@ export default async function HealthTipDetailsPage({
 
   return (
     <PublicLayout>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Article",
+            mainEntityOfPage: `${siteUrl}/health-tips/${encodeURIComponent(tip.slug)}`,
+            headline: tip.title,
+            description: tip.excerpt,
+            articleSection: tip.category,
+            datePublished: tip.date,
+            author: {
+              "@type": "Person",
+              name: tip.author,
+            },
+            publisher: {
+              "@type": "Organization",
+              name: "Homeopathy Clinic",
+              logo: {
+                "@type": "ImageObject",
+                url: `${siteUrl}/logo.jpg`,
+              },
+            },
+          }),
+        }}
+      />
+
       <article className="bg-white py-14 sm:py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
           <Link

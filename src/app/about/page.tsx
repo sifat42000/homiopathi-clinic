@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   BookOpenCheck,
   CalendarDays,
@@ -36,24 +37,35 @@ export default function AboutPage() {
           
           {/* Image */}
           <div className="relative mx-auto w-full max-w-[520px]">
-            <div className="flex min-h-[520px] items-center justify-center overflow-hidden rounded-[32px] bg-gradient-to-br from-[#DFF3E4] via-[#F6FBF7] to-[#E5F5E9]">
-              <div className="text-center">
-                <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-full bg-white shadow-lg">
-                  <Stethoscope
-                    size={58}
-                    strokeWidth={1.4}
-                    className="text-[#14532D]"
-                  />
+            <div className="relative flex min-h-[520px] items-center justify-center overflow-hidden rounded-[32px] bg-gradient-to-br from-[#DFF3E4] via-[#F6FBF7] to-[#E5F5E9]">
+              {settings.doctorPhotoUrl ? (
+                <Image
+                  src={settings.doctorPhotoUrl}
+                  alt={settings.doctorName || "Doctor portrait"}
+                  fill
+                  unoptimized
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 520px"
+                />
+              ) : (
+                <div className="text-center">
+                  <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-full bg-white shadow-lg">
+                    <Stethoscope
+                      size={58}
+                      strokeWidth={1.4}
+                      className="text-[#14532D]"
+                    />
+                  </div>
+
+                  <p className="mt-6 text-2xl font-bold text-[#14532D]">
+                    ডাক্তারের Professional Photo
+                  </p>
+
+                  <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-gray-500">
+                    পরবর্তীতে এখানে ডাক্তারের আসল ছবি ব্যবহার করা হবে।
+                  </p>
                 </div>
-
-                <p className="mt-6 text-2xl font-bold text-[#14532D]">
-                  ডাক্তারের Professional Photo
-                </p>
-
-                <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-gray-500">
-                  পরবর্তীতে এখানে ডাক্তারের আসল ছবি ব্যবহার করা হবে।
-                </p>
-              </div>
+              )}
             </div>
           </div>
 

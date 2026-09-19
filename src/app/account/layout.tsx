@@ -2,6 +2,7 @@ import type {
   ReactNode,
 } from "react";
 
+
 import {
   headers,
 } from "next/headers";
@@ -13,6 +14,9 @@ import {
 import {
   auth,
 } from "@/lib/auth";
+import { privateMetadata } from "@/lib/seo";
+
+export const metadata = privateMetadata;
 
 type AccountRootLayoutProps = {
   children: ReactNode;
