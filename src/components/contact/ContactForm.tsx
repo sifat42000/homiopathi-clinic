@@ -3,15 +3,31 @@
 import { FormEvent, useState } from "react";
 import { Send } from "lucide-react";
 
+import { trackLead } from "@/lib/meta-pixel";
+
 export default function ContactForm() {
   const [message, setMessage] = useState("");
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    setMessage(
-      "ফর্মের Frontend প্রস্তুত হয়েছে। Backend ধাপে Message পাঠানোর System চালু করব।"
+    const formData = new FormData(event.currentTarget);
+    const subject = String(
+      formData.get("subject") ?? "general"
     );
+
+    trackLead({
+      content_category: "contact",
+      content_name: subject,
+      value: 0,
+      currency: "BDT",
+    });
+
+    setMessage(
+      "আপনার Message পাঠানো হয়েছে। আমাদের Team শীঘ্রই আপনাকে কল / Email-এ উত্তর দেবে।"
+    );
+
+    event.currentTarget.reset();
   };
 
   return (
