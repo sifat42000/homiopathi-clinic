@@ -4,6 +4,7 @@ import {
   FormEvent,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -25,6 +26,9 @@ import {
 import type {
   DatabaseTreatment,
 } from "@/types/treatment";
+import {
+  trackLead,
+} from "@/lib/meta-pixel";
 
 function getLocalDateString() {
   const date =
@@ -107,6 +111,8 @@ export default function AppointmentBooking({
 
   const [error, setError] =
     useState("");
+
+  const leadTrackedRef = useRef(false);
 
   useEffect(() => {
     const loadTreatments =
@@ -344,6 +350,18 @@ export default function AppointmentBooking({
         throw new Error(
           data.message
         );
+      }
+
+      if (!leadTrackedRef.current) {
+        leadTrackedRef.current = true;
+
+        trackLead({
+          content_category: "appointment",
+          value: Number(
+            selectedTreatment?.fee ?? 0
+          ),
+          currency: "BDT",
+        });
       }
 
       router.push(

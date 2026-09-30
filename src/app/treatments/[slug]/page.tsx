@@ -13,6 +13,7 @@ import {
 } from "next/navigation";
 
 import PublicLayout from "@/components/layout/PublicLayout";
+import TreatmentViewTracker from "@/components/treatment/TreatmentViewTracker";
 
 import {
   getTreatmentBySlug,
@@ -106,6 +107,8 @@ export default async function TreatmentDetailsPage({
           }),
         }}
       />
+
+      <TreatmentViewTracker treatment={treatment} />
 
       <section className="bg-[#F7FBF8] py-14 sm:py-20">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">

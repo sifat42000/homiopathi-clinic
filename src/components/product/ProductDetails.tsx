@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -29,6 +30,10 @@ import {
   getEffectiveProductPrice,
   isTimedDiscountActive,
 } from "@/lib/product-pricing";
+import {
+  trackAddToCart,
+  trackViewContent,
+} from "@/lib/meta-pixel";
 
 type ProductDetailsProps = {
   product: Product;
@@ -60,6 +65,8 @@ export default function ProductDetails({
     number | null
   >(null);
 
+  const viewTrackedRef = useRef(false);
+
   useEffect(() => {
     setNow(
       Date.now()
@@ -90,6 +97,29 @@ export default function ProductDetails({
           product,
           new Date(now)
         );
+
+  useEffect(() => {
+    if (
+      viewTrackedRef.current ||
+      !product?.slug
+    ) {
+      return;
+    }
+
+    viewTrackedRef.current = true;
+
+    trackViewContent({
+      content_category: "product",
+      content_type: "product",
+      content_ids: [
+        product.slug,
+      ],
+      value: Number(
+        currentPrice
+      ),
+      currency: "BDT",
+    });
+  }, [product.slug, currentPrice]);
 
   const timedDiscountActive =
     now === null
@@ -148,6 +178,17 @@ export default function ProductDetails({
         cartProduct,
         quantity
       );
+
+      trackAddToCart({
+        content_ids: [
+          product.slug,
+        ],
+        content_type: "product",
+        value: Number(
+          currentPrice * quantity
+        ),
+        currency: "BDT",
+      });
 
       setAdded(true);
 

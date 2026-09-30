@@ -4,6 +4,7 @@ import {
   FormEvent,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -28,6 +29,10 @@ import {
 import {
   useCartStore,
 } from "@/stores/cart-store";
+import {
+  trackInitiateCheckout,
+  trackPurchase,
+} from "@/lib/meta-pixel";
 
 type ValidatedItem = {
   productId: number;
@@ -146,6 +151,9 @@ export default function CheckoutClient() {
 
   const [error, setError] =
     useState("");
+
+  const checkoutTrackedRef = useRef(false);
+  const purchaseTrackedRef = useRef(false);
 
   useEffect(() => {
     const loadDeliveryOptions = async () => {
@@ -303,6 +311,41 @@ export default function CheckoutClient() {
   useEffect(() => {
     validateCart(false);
   }, [validateCart]);
+
+  useEffect(() => {
+    if (
+      checkoutTrackedRef.current ||
+      items.length === 0 ||
+      !validation ||
+      !validation.valid ||
+      !validation.shopEnabled ||
+      selectedDeliveryCharge === null
+    ) {
+      return;
+    }
+
+    checkoutTrackedRef.current = true;
+
+    trackInitiateCheckout({
+      content_ids: validation.items.map(
+        (item) => item.slug
+      ),
+      value: Number(
+        validation.subtotal +
+          selectedDeliveryCharge
+      ),
+      currency: "BDT",
+      num_items: validation.items.reduce(
+        (sum, item) =>
+          sum + item.quantity,
+        0
+      ),
+    });
+  }, [
+    items.length,
+    selectedDeliveryCharge,
+    validation,
+  ]);
 
   const handleSubmit = async (
     event:
@@ -489,6 +532,27 @@ export default function CheckoutClient() {
           data.message ||
             "Order করা যায়নি।"
         );
+      }
+
+      if (!purchaseTrackedRef.current) {
+        purchaseTrackedRef.current = true;
+
+        trackPurchase({
+          content_ids: latest.items.map(
+            (item) => item.slug
+          ),
+          value: Number(
+            data.order.total ??
+              latest.subtotal +
+                selectedDeliveryCharge
+          ),
+          currency: "BDT",
+          num_items: latest.items.reduce(
+            (sum, item) =>
+              sum + item.quantity,
+            0
+          ),
+        });
       }
 
       clearCart();

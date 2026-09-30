@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { hindSiliguri, inter } from "./fonts";
 import "./globals.css";
 import {
   WebsiteSettingsProvider,
 } from "@/components/layout/WebsiteSettingsProvider";
+import MetaPixel from "@/components/analytics/MetaPixel";
 import {
   clinicStructuredData,
   createPageMetadata,
@@ -67,6 +69,10 @@ export default function RootLayout({
             ),
           }}
         />
+
+        <Suspense fallback={null}>
+          <MetaPixel />
+        </Suspense>
 
         <WebsiteSettingsProvider>
           {children}

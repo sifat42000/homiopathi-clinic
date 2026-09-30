@@ -28,6 +28,9 @@ import {
   getEffectiveProductPrice,
   isTimedDiscountActive,
 } from "@/lib/product-pricing";
+import {
+  trackAddToCart,
+} from "@/lib/meta-pixel";
 
 type ProductCardProps = {
   product: Product;
@@ -121,6 +124,18 @@ export default function ProductCard({
         cartProduct,
         1
       );
+
+      trackAddToCart({
+        content_ids: [
+          product.slug,
+        ],
+        content_type: "product",
+        value:
+          Number(
+            currentPrice
+          ),
+        currency: "BDT",
+      });
     };
 
   return (
