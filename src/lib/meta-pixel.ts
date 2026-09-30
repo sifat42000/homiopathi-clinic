@@ -55,6 +55,41 @@ let hasMetaPixelReady = false;
 let hasMetaPixelFailed = false;
 const queuedMetaEvents: QueuedMetaEvent[] = [];
 
+function ensureMetaFbqQueue() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (typeof window.fbq === "function") {
+    return;
+  }
+
+  const existingQueue = Array.isArray(
+    (window as Window & {
+      fbq?: {
+        queue?: unknown[][];
+      };
+    }).fbq?.queue
+  )
+    ? ((window as Window & {
+        fbq?: {
+          queue?: unknown[][];
+        };
+      }).fbq?.queue ?? [])
+    : [];
+
+  const fbq = function (
+    ...args: unknown[]
+  ) {
+    existingQueue.push(args);
+  } as ((...args: unknown[]) => void) & {
+    queue?: unknown[][];
+  };
+
+  fbq.queue = existingQueue;
+  window.fbq = fbq;
+}
+
 function normalizePayload(
   payload: MetaEventPayload = {}
 ): MetaEventPayload {
@@ -139,6 +174,7 @@ export function initMetaPixel() {
     return;
   }
 
+  ensureMetaFbqQueue();
   hasMetaPixelInitStarted = true;
   window.__metaPixelInitStarted = true;
 
@@ -166,6 +202,7 @@ export function markMetaPixelReady() {
     return;
   }
 
+  ensureMetaFbqQueue();
   hasMetaPixelReady = true;
   window.__metaPixelReady = true;
 
@@ -225,14 +262,21 @@ export function trackMetaEvent(
 
   const sanitized = normalizePayload(payload);
 
-  if (
-    hasMetaPixelReady &&
-    typeof window.fbq === "function" &&
-    window.__metaPixelInitialized
-  ) {
-    debugMetaPixel(
-      `Firing ${eventName}.`
-    );
+  ensureMetaFbqQueue();
+
+  if (typeof window.fbq === "function") {
+    if (
+      hasMetaPixelReady &&
+      window.__metaPixelInitialized
+    ) {
+      debugMetaPixel(
+        `Firing ${eventName}.`
+      );
+    } else {
+      debugMetaPixel(
+        `Queued ${eventName} until Meta Pixel is ready.`
+      );
+    }
 
     window.fbq("track", eventName, sanitized);
     return;
@@ -244,7 +288,7 @@ export function trackMetaEvent(
   ]);
 
   debugMetaPixel(
-    `Queued ${eventName} until Meta Pixel is ready.`
+    `Queue fallback for ${eventName}.`
   );
 }
 
@@ -275,6 +319,12 @@ export function trackLead(
   payload: MetaEventPayload
 ) {
   trackMetaEvent("Lead", payload);
+}
+
+export function trackContact(
+  payload: MetaEventPayload
+) {
+  trackMetaEvent("Contact", payload);
 }
 
 export function trackInitiateCheckout(

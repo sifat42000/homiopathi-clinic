@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import ContactForm from "@/components/contact/ContactForm";
+import WhatsAppLink from "@/components/contact/WhatsAppLink";
 import PublicLayout from "@/components/layout/PublicLayout";
 import PageHero from "@/components/ui/PageHero";
 import {
@@ -141,9 +142,11 @@ export default function ContactPage() {
                   </h4>
 
                   <p className="mt-1 text-sm leading-6 text-green-100/75">
-                    ভবিষ্যতে এখানে Phone ও WhatsApp Quick Contact যুক্ত করা
-                    হবে।
+                    WhatsApp-এ সরাসরি আমাদের সাথে কথা বলুন।
                   </p>
+                  <div className="mt-4">
+                    <WhatsAppLink variant="inline" />
+                  </div>
                 </div>
               </div>
             </div>
