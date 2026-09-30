@@ -9,11 +9,21 @@ export type MetaEventPayload = Record<
   MetaPayloadValue | undefined | null
 >;
 
+type QueuedMetaEvent = [
+  string,
+  MetaEventPayload
+];
+
 declare global {
   interface Window {
     fbq?: ((...args: unknown[]) => void) & {
       queue?: unknown[][];
     };
+    __metaPixelReady?: boolean;
+    __metaPixelInitialized?: boolean;
+    __metaPixelInitStarted?: boolean;
+    __metaPixelScriptFailed?: boolean;
+    __metaPixelLastRoute?: string;
   }
 }
 
@@ -21,7 +31,29 @@ const metaPixelClientId = () =>
   (process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "")
     .trim();
 
-let hasInitializedMetaPixel = false;
+const isDevelopment = () =>
+  process.env.NODE_ENV === "development";
+
+function debugMetaPixel(message: string) {
+  if (isDevelopment()) {
+    console.info(
+      `[Meta Pixel] ${message}`
+    );
+  }
+}
+
+function warnMetaPixel(message: string) {
+  if (isDevelopment()) {
+    console.warn(
+      `[Meta Pixel] ${message}`
+    );
+  }
+}
+
+let hasMetaPixelInitStarted = false;
+let hasMetaPixelReady = false;
+let hasMetaPixelFailed = false;
+const queuedMetaEvents: QueuedMetaEvent[] = [];
 
 function normalizePayload(
   payload: MetaEventPayload = {}
@@ -66,6 +98,28 @@ function normalizePayload(
   return safe;
 }
 
+function flushQueuedMetaEvents() {
+  if (
+    !hasMetaPixelReady ||
+    typeof window === "undefined" ||
+    typeof window.fbq !== "function" ||
+    !window.__metaPixelInitialized
+  ) {
+    return;
+  }
+
+  while (queuedMetaEvents.length > 0) {
+    const [eventName, payload] =
+      queuedMetaEvents.shift()!;
+
+    debugMetaPixel(
+      `Flushing queued ${eventName}.`
+    );
+
+    window.fbq("track", eventName, payload);
+  }
+}
+
 export function initMetaPixel() {
   if (typeof window === "undefined") {
     return;
@@ -74,80 +128,73 @@ export function initMetaPixel() {
   const pixelId = metaPixelClientId();
 
   if (!pixelId) {
-    return;
-  }
-
-  if (hasInitializedMetaPixel) {
-    if (typeof window.fbq === "function") {
-      window.fbq("init", pixelId);
-    }
+    warnMetaPixel(
+      "Missing NEXT_PUBLIC_META_PIXEL_ID; Meta Pixel is disabled."
+    );
 
     return;
   }
 
-  hasInitializedMetaPixel = true;
-
-  if (typeof window.fbq !== "function") {
-    const queue =
-      Array.isArray(
-        (window as Window & {
-          fbq?: {
-            queue?: unknown[][];
-          };
-        }).fbq?.queue
-      )
-        ? ((window as Window & {
-            fbq?: {
-              queue?: unknown[][];
-            };
-          }).fbq?.queue ?? [])
-        : [];
-
-    const fbq = function (
-      ...args: unknown[]
-    ) {
-      queue.push(args);
-    };
-
-    (fbq as typeof fbq & {
-      queue?: unknown[][];
-    }).queue = queue;
-
-    window.fbq = fbq;
+  if (hasMetaPixelInitStarted) {
+    return;
   }
 
-  const existingScript = document.querySelector(
-    'script[src*="connect.facebook.net"]'
+  hasMetaPixelInitStarted = true;
+  window.__metaPixelInitStarted = true;
+
+  debugMetaPixel(
+    `Initialization started for pixel ${pixelId}.`
   );
+}
 
-  if (existingScript) {
-    if (typeof window.fbq === "function") {
-      window.fbq("init", pixelId);
-    }
+export function markMetaPixelReady() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const pixelId = metaPixelClientId();
+
+  if (!pixelId) {
+    warnMetaPixel(
+      "Meta Pixel cannot be initialized because NEXT_PUBLIC_META_PIXEL_ID is missing."
+    );
 
     return;
   }
 
-  const script = document.createElement("script");
-  script.async = true;
-  script.src =
-    "https://connect.facebook.net/en_US/fbevents.js";
-  script.setAttribute(
-    "data-pixel-id",
-    pixelId
+  if (hasMetaPixelFailed) {
+    return;
+  }
+
+  hasMetaPixelReady = true;
+  window.__metaPixelReady = true;
+
+  if (
+    typeof window.fbq === "function" &&
+    !window.__metaPixelInitialized
+  ) {
+    window.__metaPixelInitialized = true;
+    window.fbq("init", pixelId);
+    debugMetaPixel(
+      `Meta Pixel script loaded and initialized with pixel ${pixelId}.`
+    );
+  }
+
+  flushQueuedMetaEvents();
+}
+
+export function markMetaPixelFailed() {
+  hasMetaPixelFailed = true;
+  hasMetaPixelReady = false;
+
+  if (typeof window !== "undefined") {
+    window.__metaPixelReady = false;
+    window.__metaPixelScriptFailed = true;
+  }
+
+  warnMetaPixel(
+    "Meta Pixel script failed to load. Tracking will remain disabled and will not break the site."
   );
-
-  script.onload = () => {
-    if (typeof window.fbq === "function") {
-      window.fbq("init", pixelId);
-    }
-  };
-
-  script.onerror = () => {
-    // Intentionally silent so tracking never breaks the app.
-  };
-
-  document.head.appendChild(script);
 }
 
 export function trackMetaEvent(
@@ -161,20 +208,44 @@ export function trackMetaEvent(
   const pixelId = metaPixelClientId();
 
   if (!pixelId) {
+    warnMetaPixel(
+      "Event dropped because NEXT_PUBLIC_META_PIXEL_ID is undefined."
+    );
+
     return;
   }
 
-  if (typeof window.fbq !== "function") {
-    initMetaPixel();
-  }
+  if (hasMetaPixelFailed) {
+    warnMetaPixel(
+      `${eventName} was not sent because the Meta Pixel script failed to load.`
+    );
 
-  if (typeof window.fbq !== "function") {
     return;
   }
 
   const sanitized = normalizePayload(payload);
 
-  window.fbq("track", eventName, sanitized);
+  if (
+    hasMetaPixelReady &&
+    typeof window.fbq === "function" &&
+    window.__metaPixelInitialized
+  ) {
+    debugMetaPixel(
+      `Firing ${eventName}.`
+    );
+
+    window.fbq("track", eventName, sanitized);
+    return;
+  }
+
+  queuedMetaEvents.push([
+    eventName,
+    sanitized,
+  ]);
+
+  debugMetaPixel(
+    `Queued ${eventName} until Meta Pixel is ready.`
+  );
 }
 
 export function trackMetaPageView(
