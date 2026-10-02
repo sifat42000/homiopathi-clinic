@@ -27,7 +27,7 @@ declare global {
   }
 }
 
-export const META_PIXEL_ID = "1757054798866015";
+export const META_PIXEL_ID = "3644261599083942";
 
 const isDevelopment = () =>
   process.env.NODE_ENV === "development";
