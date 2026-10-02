@@ -12,14 +12,14 @@ import {
 import {
   initMetaPixel,
   markMetaPixelReady,
+  META_PIXEL_ID,
   trackMetaPageView,
 } from "@/lib/meta-pixel";
 
 export default function MetaPixel() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const pixelId =
-    process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
+  const pixelId = META_PIXEL_ID;
 
   const scriptContent = `
     !function(f,b,e,v,n,t,s){

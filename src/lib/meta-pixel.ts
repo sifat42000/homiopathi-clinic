@@ -27,9 +27,7 @@ declare global {
   }
 }
 
-const metaPixelClientId = () =>
-  (process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "")
-    .trim();
+export const META_PIXEL_ID = "1757054798866015";
 
 const isDevelopment = () =>
   process.env.NODE_ENV === "development";
@@ -160,16 +158,6 @@ export function initMetaPixel() {
     return;
   }
 
-  const pixelId = metaPixelClientId();
-
-  if (!pixelId) {
-    warnMetaPixel(
-      "Missing NEXT_PUBLIC_META_PIXEL_ID; Meta Pixel is disabled."
-    );
-
-    return;
-  }
-
   if (hasMetaPixelInitStarted) {
     return;
   }
@@ -179,22 +167,12 @@ export function initMetaPixel() {
   window.__metaPixelInitStarted = true;
 
   debugMetaPixel(
-    `Initialization started for pixel ${pixelId}.`
+    `Initialization started for pixel ${META_PIXEL_ID}.`
   );
 }
 
 export function markMetaPixelReady() {
   if (typeof window === "undefined") {
-    return;
-  }
-
-  const pixelId = metaPixelClientId();
-
-  if (!pixelId) {
-    warnMetaPixel(
-      "Meta Pixel cannot be initialized because NEXT_PUBLIC_META_PIXEL_ID is missing."
-    );
-
     return;
   }
 
@@ -211,9 +189,9 @@ export function markMetaPixelReady() {
     !window.__metaPixelInitialized
   ) {
     window.__metaPixelInitialized = true;
-    window.fbq("init", pixelId);
+    window.fbq("init", META_PIXEL_ID);
     debugMetaPixel(
-      `Meta Pixel script loaded and initialized with pixel ${pixelId}.`
+      `Meta Pixel script loaded and initialized with pixel ${META_PIXEL_ID}.`
     );
   }
 
@@ -239,16 +217,6 @@ export function trackMetaEvent(
   payload: MetaEventPayload = {}
 ) {
   if (typeof window === "undefined") {
-    return;
-  }
-
-  const pixelId = metaPixelClientId();
-
-  if (!pixelId) {
-    warnMetaPixel(
-      "Event dropped because NEXT_PUBLIC_META_PIXEL_ID is undefined."
-    );
-
     return;
   }
 
